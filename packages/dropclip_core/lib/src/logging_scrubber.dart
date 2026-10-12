@@ -97,3 +97,4 @@ class LoggingScrubber {
     return jsonEncode(record);
   }
 }
+
