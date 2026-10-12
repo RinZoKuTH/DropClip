@@ -17,10 +17,10 @@
 
 | ลำดับ | ชื่อ-นามสกุล (ชื่อเล่น) | Role Code | บทบาทหลัก (Primary Role) | ขอบเขตหน้าที่และความรับผิดชอบหลัก (SRS Mapping) |
 |:---:|---|:---:|---|---|
-| **1** | **นายธนกฤต บุญญาวรกุล (เจ)** | `LEAD` | Project Lead & System Architect | Architecture, Protocol Spec, Security Core (FR-02, NFR-S), Native C++/Swift hooks, Pair-Program T1.3 with MOB, CI/CD, Code Signing & Release |
-| **2** | **นายณัฐธีร์ อโณทัยไพบูลย์ (ธีร์)** | `DESK` | Desktop Client Developer | Desktop Discovery (FR-01), Tier 1 Clipboard Sync Engine (FR-03A, FR-04), Cross-OS Image Normalizer (T1.8, FR-06), Desktop UI & System Tray (FR-12, UI-01, UI-02) |
-| **3** | **นายเกื้ออนันต์ พวงนิลน้อย (เกื้อ)** | `MOB` | Mobile Client Developer | Android Tier 2 Sync & Foreground Service (FR-03B), iOS Tier 3 Extensions/Widgets (FR-03C), Mobile UI (UI-05), Pair-Program T1.3 with LEAD |
-| **4** | **นายปัณณ์ ศรีเจริญชัยกุล (ปัน)** | `NET` | Network & File Engine Engineer | Transport Layer (FR-10, CI-02), Streaming Data Plane (FR-07, FR-08, SF-06), Resumable Transfer Engine (FR-09) |
+| **1** | **นายธนกฤต บุญญาวรกุล (เจ)** | `LEAD` | Project Lead & System Architect | Architecture, Protocol Spec, Security Core (FR-02, NFR-S), Signed Cluster Revocation (T1.13), iOS Network Privacy & NWBrowser (T3.1), Pair-Program T1.3 with MOB, CI/CD, Code Signing & Release |
+| **2** | **นายณัฐธีร์ อโณทัยไพบูลย์ (ธีร์)** | `DESK` | Desktop Client Developer | Desktop Discovery (FR-01), macOS Native Clipboard Watcher (T1.6), Tier 1 Clipboard Sync Engine (FR-03A, FR-04), Cross-OS Image Normalizer (T1.8, FR-06), Desktop UI & System Tray (FR-12, UI-01, UI-02) |
+| **3** | **นายเกื้ออนันต์ พวงนิลน้อย (เกื้อ)** | `MOB` | Mobile Client Developer | Mobile Spikes (S0.2), Android Tier 2 Sync & Foreground Service (FR-03B), iOS Tier 3 Extensions, Widgets & PhotoKit (T3.2–T3.4), Mobile UI (UI-05), Pair-Program T1.3 with LEAD |
+| **4** | **นายปัณณ์ ศรีเจริญชัยกุล (ปัน)** | `NET` | Network & File Engine Engineer | Transport Layer (FR-10, CI-02), Windows Native Clipboard Watcher (T1.7), Streaming Data Plane (FR-07, FR-08, SF-06), Resumable Transfer Engine (FR-09) |
 | **5** | **นายปรมินทร์ มุขอาษา (ตามด)** | `QA` | QA, UX/UI & Performance Engineer | Test Harness & Chaos Simulation (NFR-RE), Automated Benchmarks (NFR-P, NFR-R), Security Pentest Auditing (STRIDE/Threat Modeling), UX Usability Studies (NFR-U) |
 
 ---
@@ -118,8 +118,8 @@ main (Protected — Production Ready, Always Stable)
 | **T1.3** | Pairing Engine, Commit-then-Reveal SAS & QR Flow | `LEAD` + `MOB` | FR-02, SF-02, UI-03, HW-02 | §5, §18.1, §18.2 | ADR-009 |
 | **T1.4** | TLS 1.3 Transport Server & Pinned Client | `NET` | FR-10, NFR-S01, CI-02, CI-03 | §4, §6.1 | ADR-002, ADR-006 |
 | **T1.5** | WebSocket Control Plane & Reconnect | `NET` | FR-10, CI-02, NFR-RE03 | §6, §7 | ADR-003 |
-| **T1.6** | macOS Clipboard Watcher (Swift Native) | `LEAD` | FR-03A, SW-01, NFR-P01A | §10, §14.1 | ADR-001 |
-| **T1.7** | Windows Clipboard Watcher (C++ Native) | `LEAD` | FR-03A, SW-01, NFR-P01A | §10, §14.1 | ADR-001 |
+| **T1.6** | macOS Clipboard Watcher (Swift Native) | `DESK` | FR-03A, SW-01, NFR-P01A | §10, §14.1 | ADR-001 |
+| **T1.7** | Windows Clipboard Watcher (C++ Native) | `NET` | FR-03A, SW-01, NFR-P01A | §10, §14.1 | ADR-001 |
 | **T1.8** | Cross-OS Image Format Normalizer | `DESK` | FR-06, SF-04, NFR-P02, NFR-P05 | §11 | — |
 | **T1.9** | Clipboard Sync Engine (HLC & Loop Prevention) | `DESK` | FR-03A, FR-04, FR-05, NFR-RE02 | §10 | ADR-008 |
 | **T1.10** | Streaming Data Plane File Engine | `NET` | FR-07, FR-08, SF-06, NFR-P03, NFR-R01 | §9, §12 | ADR-004 |
@@ -133,7 +133,7 @@ main (Protected — Production Ready, Always Stable)
 | **T2.4** | Android MediaStore & Share Target Engine | `MOB` | FR-07, FR-08, SW-03 | §12.3, §14.2 | — |
 | **T2.5** | Android Mobile UI & QR Scanner | `MOB` | UI-03, UI-05 | §5.3 | — |
 | **GATE-2** | Phase 2 Android Exit Gate | `ALL` | All Android Requirements | — | — |
-| **T3.1** | iOS Network Permissions & NWBrowser Discovery | `MOB` | FR-01, CI-01 | §3, §14.3 | — |
+| **T3.1** | iOS Network Permissions & NWBrowser Discovery | `LEAD` | FR-01, CI-01 | §3, §14.3 | — |
 | **T3.2** | iOS Share Extension (BG URLSession < 30 MB) & Memory Sandbox | `MOB` | FR-03C, NFR-R03B, NFR-P01D | §9.4, §14.3 | ADR-007 |
 | **T3.3** | iOS Action Button, Widgets & Shortcuts (iOS 15/16 Fallbacks) | `MOB` | FR-03C, UI-05 | §14.3 | — |
 | **T3.4** | iOS PhotoKit & File Receiver Engine | `MOB` | FR-08, SW-03 | §12.3, §14.3 | — |
@@ -373,16 +373,20 @@ main (Protected — Production Ready, Always Stable)
 - **Description:**  
   Implement กระบวนการจับคู่อุปกรณ์อย่างปลอดภัยตาม FR-02, SF-02, ADR-009 และ Protocol Spec §5 ครอบคลุมทั้ง QR Code Mode และ Manual PIN Mode พร้อมกลไกป้องกัน MITM ด้วย Commit-then-Reveal Scheme
 - **Technical Detail:**
-  - Host สร้าง Pairing Session สุ่ม $N_A$ (16 ไบต์) พร้อม PIN 6 หลัก (อายุ 60 วินาที)
-  - Client สแกน QR (Error Correction M) ซึ่งบรรจุ $N_A$ แบบ Out-of-Band (OOB) หรือกรอก PIN
+  - Host สร้าง Pairing Session สุ่ม $N_A$ (16 ไบต์) พร้อมแสดง PIN 6 หลัก (อายุ 60 วินาที)
+  - QR Mode: Client สแกน QR (Error Correction M) ซึ่งบรรจุ $N_A$ แบบ Out-of-Band (OOB)
+  - Manual PIN Mode (Zero PIN on Wire): ผู้ใช้กรอก PIN บน Client โดยระบบ**ห้ามส่ง PIN หรือค่าที่ derive จาก PIN ผ่านเครือข่ายเด็ดขาด** (ตัดความเสี่ยง Offline Dictionary Attack $10^6$) แต่ใช้เป็น OOB Salt ในการคำนวณ SAS ในเครื่อง
   - Client สร้าง $N_B$ และส่ง Commitment $C_B = \text{SHA-256}(\text{"dropclip-commit-v1:"} \parallel N_B \parallel \text{fp}_B)$ ไปยัง Host ก่อนผ่าน `POST /api/v1/pair`
   - Host ส่ง $N_A$ ยืนยันกลับ จากนั้น Client จึงเปิดเผย $N_B$ ใน `POST /api/v1/pair/confirm`
-  - ทั้งสองฝั่งคำนวณและแสดงรหัส Short Authentication String (SAS) 6 หลักจาก SHA-256(fp_lo || fp_hi || nonce_A || nonce_B)
+  - ทั้งสองฝั่งคำนวณและแสดงรหัส Short Authentication String (SAS) 6 หลัก:
+    - QR Mode: $\text{SHA-256}(fp_{lo} \parallel fp_{hi} \parallel N_A \parallel N_B) \bmod 10^6$ (Test Vector `"482910"`)
+    - PIN Mode: $\text{SHA-256}(fp_{lo} \parallel fp_{hi} \parallel N_A \parallel N_B \parallel \text{"dropclip-pin-salt-v1:"} \parallel \text{UTF8}(\text{PIN})) \bmod 10^6$ (Test Vector `"639589"`)
   - ป้องกัน Active MITM Brute-force Collision ได้อย่างสมบูรณ์ตาม ADR-009 พร้อม Rate Limiting (5 ครั้ง/นาที)
 - **Acceptance Criteria:**
   - [ ] กระบวนการจับคู่เสร็จสิ้นภายใน **< 15 วินาที** รวมขั้นตอนการสแกนและยืนยัน
   - [ ] Commitment Scheme ป้องกันการสุ่มค้นหา Keypair ชนกัน (Collision) ของ MITM ได้ 100%
-  - [ ] รหัส SAS แสดงผลตรงกันทั้งสองฝั่ง และตรงตาม Test Vector ใน Protocol Spec §18.1 / §18.2
+  - [ ] รหัส SAS แสดงผลตรงกันทั้งสองฝั่ง และตรงตาม Test Vector ใน Protocol Spec §18.1 (`"482910"`) และ §18.2 (`"639589"`) 100%
+  - [ ] ยืนยันว่าไม่มีการส่ง PIN หรือ Hash ของ PIN บนเครือข่ายเด็ดขาด (Zero PIN on Wire) ผ่าน Packet Capture Inspection
   - [ ] หากผู้ใช้กดยืนยันว่า SAS ไม่ตรงกัน ระบบต้องตัดการเชื่อมต่อทันทีและไม่บันทึกความเชื่อถือ
   - [ ] ระบบจำกัดความถี่การขอจับคู่ไม่เกิน 5 ครั้งต่อนาทีต่อ IP และระงับ 5 นาทีหากผิดพลาด 3 ครั้ง
 
@@ -434,7 +438,7 @@ main (Protected — Production Ready, Always Stable)
 #### Milestone M3: Cross-OS Clipboard Engine (สัปดาห์ 7–10) ⭐
 
 #### T1.6 — macOS Native Clipboard Watcher & Concealed Detector
-- **Owner:** `LEAD` (เจ)
+- **Owner:** `DESK` (ธีร์)
 - **Estimate:** 4 วัน
 - **Priority:** P0
 - **Dependencies:** T0.1
@@ -454,7 +458,7 @@ main (Protected — Production Ready, Always Stable)
 ---
 
 #### T1.7 — Windows Native Clipboard Watcher & Win32 Integration
-- **Owner:** `LEAD` (เจ)
+- **Owner:** `NET` (ปัน)
 - **Estimate:** 4 วัน
 - **Priority:** P0
 - **Dependencies:** T0.1
@@ -731,7 +735,7 @@ main (Protected — Production Ready, Always Stable)
 ### PHASE 3 — iOS CAPABILITY EXTENSION (สัปดาห์ 18–21)
 
 #### T3.1 — iOS Local Network Privacy & Discovery Permissions
-- **Owner:** `MOB` (เกื้อ)
+- **Owner:** `LEAD` (เจ)
 - **Estimate:** 4 วัน
 - **Priority:** P0
 - **Dependencies:** GATE-2
@@ -874,7 +878,7 @@ main (Protected — Production Ready, Always Stable)
   - Chaos Test: สุ่มตัดการเชื่อมต่อเครือข่าย, สลับหมายเลข IP, จำลองสถานการณ์ดิสก์เต็ม
   - ตรวจสอบ File Descriptor Leak และ Socket Leak ทุก 10 นาที
 - **Acceptance Criteria:**
-  - [ ] ทดสอบต่อเนื่อง 72 ชั่วโมงโดยกราฟหน่วยความจำคงที่ ไม่มีการรั่วไหลของ Memory (Zero Memory Growth)
+  - [ ] ทดสอบต่อเนื่อง 72 ชั่วโมงโดยอัตราการเพิ่มของหน่วยความจำ RSS **≤ 5%** หลังผ่านช่วง Warm-up 30 นาทีแรก (NFR-R01)
   - [ ] ระบบกู้คืนสถานะกลับมาทำงานได้ 100% หลังผ่านการจำลองเหตุการณ์เครือข่ายขัดข้อง
   - [ ] ไม่พบ Socket ค้างหรือ Unhandled Exception ในระบบ
 
@@ -926,7 +930,7 @@ main (Protected — Production Ready, Always Stable)
 - **Exit Criteria:**
   - [ ] ผลการทดสอบทุกเกณฑ์ใน Performance Matrix ผ่านเป้าหมาย 100%
   - [ ] รายงาน Penetration Test ไม่พบช่องโหว่ระดับ High หรือ Critical
-  - [ ] ผ่านการทดสอบ Soak Test 72 ชั่วโมงโดยไม่มี Memory Growth
+  - [ ] ผ่านการทดสอบ Soak Test 72 ชั่วโมงโดยอัตราการเพิ่มของหน่วยความจำ RSS ≤ 5% หลังช่วง Warm-up 30 นาทีแรก (NFR-R01)
   - [ ] ได้รับคะแนนประเมินความพึงพอใจการใช้งาน SUS Score ≥ 75 คะแนน
   - [ ] Build Artifacts ผ่านการ Signed และ Notarized ครบทั้ง 4 แพลตฟอร์ม พร้อมเปิดตัวอย่างเป็นทางการ
 
@@ -934,14 +938,14 @@ main (Protected — Production Ready, Always Stable)
 
 ## 6. Workload Distribution Summary
 
-ตารางสรุปสัดส่วนภาระงาน (Workload Distribution) แยกตามสมาชิกทั้ง 5 คน ตลอดระยะเวลาการดำเนินโครงการ 24 สัปดาห์:
+ตารางสรุปสัดส่วนภาระงาน (Workload Distribution) แยกตามสมาชิกทั้ง 5 คน ตลอดระยะเวลาการดำเนินโครงการ 24 สัปดาห์ (Rebalanced):
 
 | Role Code | สมาชิกในทีม | จำนวน Tickets หลัก | รวมประมาณการวันทำงาน (Est. Working Days) | สัดส่วนภาระงาน (%) | ขอบเขตโมดูลหลักที่รับผิดชอบ |
 |:---:|---|:---:|:---:|:---:|---|
-| `LEAD` | **นายธนกฤต บุญญาวรกุล (เจ)** | 9 Tickets | 31 วัน | 21.4% | System Architecture, Protocol Core, Security/Crypto Engine, Native Desktop Hooks, Pair-Program T1.3 with MOB, Code Signing & Release |
-| `DESK` | **นายณัฐธีร์ อโณทัยไพบูลย์ (ธีร์)** | 5 Tickets | 27 วัน | 18.6% | Logging Scrubber, mDNS Discovery, Cross-OS Image Normalizer (T1.8), Clipboard Sync Engine & Loop Prevention, Desktop UI & System Tray |
-| `MOB` | **นายเกื้ออนันต์ พวงนิลน้อย (เกื้อ)** | 10 Tickets | 41 วัน | 28.3% | Mobile Spikes, Pair-Program T1.3 with LEAD, Android Service & UI, iOS Extensions, Widgets & System Shortcuts |
-| `NET` | **นายปัณณ์ ศรีเจริญชัยกุล (ปัน)** | 4 Tickets | 20 วัน | 13.8% | TLS Transport, WebSocket Control Plane, Streaming File Engine, Resumable Transfer Engine |
-| `QA` | **นายปรมินทร์ มุขอาษา (ตามด)** | 6 Tickets | 26 วัน | 17.9% | STRIDE Threat Model (T0.5), Test Cluster Harness, Desktop Pentest Audit (GATE-1), Benchmark Suite, Mobile Pentest, Chaos/Soak Testing, UX Study |
+| `LEAD` | **นายธนกฤต บุญญาวรกุล (เจ)** | 9 Tickets | 27.5 วัน | 18.8% | System Architecture, Protocol Core, Security/Crypto Engine, Signed Cluster Revocation (T1.13), iOS Network Privacy & NWBrowser (T3.1), Pair-Program T1.3 with MOB, CI/CD, Code Signing & Release |
+| `DESK` | **นายณัฐธีร์ อโณทัยไพบูลย์ (ธีร์)** | 6 Tickets | 31.0 วัน | 21.2% | Logging Scrubber, mDNS Discovery, macOS Native Clipboard Watcher (T1.6), Cross-OS Image Normalizer (T1.8), Clipboard Sync Engine & Loop Prevention, Desktop UI & System Tray |
+| `MOB` | **นายเกื้ออนันต์ พวงนิลน้อย (เกื้อ)** | 10 Tickets | 37.5 วัน | 25.7% | Mobile Spikes, Pair-Program T1.3 with LEAD, Android Service & UI, iOS Extensions, Widgets & PhotoKit File Engine (T3.2–T3.4) |
+| `NET` | **นายปัณณ์ ศรีเจริญชัยกุล (ปัน)** | 5 Tickets | 24.0 วัน | 16.4% | TLS Transport, WebSocket Control Plane, Windows Native Clipboard Watcher (T1.7), Streaming File Engine, Resumable Transfer Engine |
+| `QA` | **นายปรมินทร์ มุขอาษา (ตามด)** | 6 Tickets | 26.0 วัน | 17.8% | STRIDE Threat Model (T0.5), Test Cluster Harness, Desktop Pentest Audit (GATE-1), Benchmark Suite, Mobile Pentest, Chaos/Soak Testing, UX Study |
 | `ALL` | **ทั้งทีม 5 คนร่วมกัน** | 4 Gates | 2 สัปดาห์ (Dogfooding) | — | Phase Gate Reviews, Dogfooding Testing, Final Deployment Approval |
-| **รวม** | **5 คน** | **34 Tickets + 4 Gates** | **~145 working days** | **100.0%** | **กระจายภาระงานสมดุล พร้อมรับการพัฒนาระยะยาว 24 สัปดาห์** |
+| **รวม** | **5 คน** | **34 Tickets + 4 Gates** | **~146 working days** | **100.0%** | **กระจายภาระงานสมดุล พร้อมรับการพัฒนาระยะยาว 24 สัปดาห์** |

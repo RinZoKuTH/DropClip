@@ -91,11 +91,14 @@ Tier ของอุปกรณ์ MUST ถูกประกาศใน mDNS 
 - อุปกรณ์ที่ trusted และ online เชื่อมต่อกันแบบ **Full Mesh** (สูงสุด `MAX_PEERS` = 8)
 - **ไม่มี relay ใน v1:** อุปกรณ์ MUST NOT forward ข้อความที่ได้รับจาก peer หนึ่งไปยัง peer อื่น ดังนั้นใน v1 `origin` จะเท่ากับผู้ส่งเสมอ — แต่ผู้รับ MUST ยังคงตรวจ `origin` ตาม §10 (defense-in-depth และรองรับ relay ในอนาคต)
 
-### 2.4 Version Negotiation
+### 2.4 Version Negotiation & Compatibility Policy
 
-- ทุกฝ่าย MUST ประกาศ `v` ใน mDNS TXT, ใน `hello` และใน request body ของ `/api/v1/pair`
-- ถ้า `v` ไม่ตรงกัน ฝ่ายรับ MUST ตอบ `error` code `E_VERSION_MISMATCH` (fatal) แล้วปิด connection
-- **ไม่มี backward compatibility ใน Phase 1** — ตั้งใจเพื่อลดความซับซ้อน
+- ทุกฝ่าย MUST ประกาศ `v` (เวอร์ชันปัจจุบัน) และ `min_v` (เวอร์ชันต่ำสุดที่ยังรองรับได้) ใน mDNS TXT, ในข้อความ `hello` และใน request body ของ `/api/v1/pair`
+- **กลไกการเจรจาเวอร์ชัน (Version Negotiation):**
+  $$\text{negotiated\_v} = \min(\text{local.v}, \text{remote.v})$$
+  หาก $\text{negotiated\_v} \ge \max(\text{local.min\_v}, \text{remote.min\_v})$ ทั้งสองฝ่ายตกลงสื่อสารด้วย $\text{negotiated\_v}$
+- หากไม่มีช่วงเวอร์ชันที่รองรับร่วมกัน ฝ่ายรับ MUST ปิดการเชื่อมต่อด้วย Close Code `4003` พร้อมส่งรหัสข้อผิดพลาด `E_UNSUPPORTED_VERSION` (fatal)
+- **Forward Compatibility:** โหนดที่ได้รับฟิลด์ JSON ที่ตนไม่รู้จัก MUST ละเว้นฟิลด์นั้นอย่างปลอดภัยโดยไม่ Crash
 
 ---
 
@@ -110,11 +113,15 @@ Port (SRV)   : พอร์ตที่ bind ได้จริงในช่�
 Record TTL   : 120 วินาที (MDNS_TTL)
 ```
 
+> **ข้อกำหนดเฉพาะสำหรับ Windows & Firewall Onboarding:**  
+> Windows 10/11 มี mDNS Responder ของระบบ (`dnscache`) ที่เปิดใช้งานพอร์ต UDP 5353 อยู่แล้ว DropClip บน Windows MUST ผูก Socket ด้วยตัวเลือก `SO_REUSEADDR` เพื่อให้สามารถรับฟัง Multicast ร่วมกับระบบได้ และแอปพลิเคชันต้องมีหน้าจอ First-Run Onboarding อธิบายให้ผู้ใช้กด "Allow Access" เมื่อ Windows Defender Firewall แจ้งเตือนในครั้งแรก
+
 ### 3.2 TXT Record
 
 | Key | Required | ค่า |
 |---|---|---|
-| `v` | ✅ | Protocol version — `"1"` |
+| `v` | ✅ | Protocol version ปัจจุบัน — เช่น `"1"` |
+| `min_v` | ✅ | Protocol version ต่ำสุดที่ยังรองรับได้ — เช่น `"1"` |
 | `id` | ✅ | Device UUID v4 (ต้องตรงกับ Instance Name) |
 | `name` | ✅ | **Base64 ของชื่อเครื่อง UTF-8** — ชื่อ MUST ≤ 64 bytes ก่อน encode (ตัดที่ขอบ code point) |
 | `os` | ✅ | `macos` \| `windows` \| `ios` \| `android` |
@@ -126,6 +133,7 @@ Record TTL   : 120 วินาที (MDNS_TTL)
 ตัวอย่าง:
 ```
 v=1
+min_v=1
 id=550e8400-e29b-41d4-a716-446655440000
 name=TWFjQm9vayBQcm8g4LiC4Lit4LiH4LmA4LiI
 os=macos
@@ -265,10 +273,10 @@ Host MUST แสดงทั้ง **QR Code และ PIN** บนหน้า�
 
 เพื่อป้องกันการโจมตี Active MITM Brute-Force Keypair ให้ SAS 6 หลักตรงกัน ระบบใช้สถาปัตยกรรม **Commit-then-Reveal Scheme**:
 
-| Mode | ใช้เมื่อ | ช่องทางส่ง `nonce_A` | กลไก Commitment |
+| Mode | ใช้เมื่อ | ช่องทางส่ง `nonce_A` | กลไก Commitment & การจัดการ Secret |
 |---|---|---|---|
 | `qr` | มือถือสแกน QR จาก Desktop | **Out-Of-Band (OOB)** ผ่านหน้าจอเท่านั้น — ป้องกันผู้โจมตีบนเครือข่ายดักจับ | Client ส่ง `commitment_B = SHA-256("dropclip-commit-v1:" ‖ nonce_B ‖ fp_B)` ใน `/pair` แล้วเปิดเผย `nonce_B` ใน `/confirm` |
-| `pin` | Desktop ↔ Desktop หรือกรอก Manual IP | ผู้ใช้ดู PIN 6 หลักบนหน้าจอ Host แล้วกรอกลง Client | Client คำนวณ `pin_nonce_A = SHA-256("dropclip-pin-v1:" ‖ pin)[0:16]` พร้อมส่ง `commitment_B` ก่อนเปิดเผย `nonce_B` |
+| `pin` | Desktop ↔ Desktop หรือกรอก Manual IP | Host สุ่ม PIN 6 หลักและ $N_A$ แสดงบนหน้าจอ; ผู้ใช้กรอก PIN บน Client | **ห้ามส่ง PIN หรือค่าที่คำนวณจาก PIN (เช่น hash/nonce) บนเครือข่ายเด็ดขาด!** ป้องกันการโจมตี Offline Dictionary Brute-force 10^6 โดย Client ส่งเพียง `commitment_B` ใน `/pair` และเปิดเผย `nonce_B` ใน `/confirm`; จากนั้นทั้งสองฝั่งนำ PIN จากหน้าจอมาผสมเป็น salt คำนวณ SAS: $\text{SAS} = \text{SHA-256}(\text{fp}_{lo} \parallel \text{fp}_{hi} \parallel N_A \parallel N_B \parallel \text{"dropclip-pin-salt-v1:"} \parallel \text{UTF8}(PIN)) \bmod 10^6$ |
 
 ### 5.3 QR Payload
 
@@ -298,13 +306,14 @@ Device A — Host (แสดง QR + PIN)                         Device B — C
   │                                                          │ 4. TLS 1.3 (mTLS ด้วย cert ECDSA P-256 ของ B)
   │                                                          │    mode=qr: pin server fp = QR.fp
   │◀──────────── 5. POST /api/v1/pair ───────────────────────│
-  │   {v, device_id, name, os, tier, fp, commitment_B,       │
-  │    nonce_A (หรือ pin_nonce_A), method}                   │
+  │   {v, min_v, device_id, name, os, tier, fp,              │
+  │    commitment_B, method: "qr" | "pin"}                   │  (ห้ามส่ง PIN หรือ pin_nonce บนสายเด็ดขาด!)
   │ 6. ตรวจ: rate limit, session open, exp > now,            │
-  │    nonce_A ตรง, body.fp == SHA-256(client cert)          │
+  │    body.fp == SHA-256(client cert)                       │
   │    บันทึก commitment_B, ปรับ state = committed            │
-  │──────────── 7. 200 {pair_id, device_id, name, os, tier, fp} ─▶│
-  │                                                          │ 8. ตรวจ body.fp == server TLS cert fp
+  │──────────── 7. 200 {pair_id, device_id, name, os, tier, ─▶│
+  │                     fp, nonce_A}                         │  (Host ส่ง nonce_A ให้ Client)
+  │                                                          │ 8. mode=pin: ตรวจ body.fp == server TLS cert fp
   │                                                          │ 9. Client เปิดเผย nonce_B
   │◀──────────── 10. POST /api/v1/pair/confirm ──────────────│
   │   {pair_id, nonce_B}                                     │
@@ -312,7 +321,8 @@ Device A — Host (แสดง QR + PIN)                         Device B — C
   │     SHA-256("dropclip-commit-v1:" ‖ nonce_B ‖ fp_B)      │
   │     == commitment_B (ไม่ตรง → 401 E_PAIRING_INVALID)     │
   │ 12. ทั้งสองฝั่งคำนวณ SAS อิสระจาก (§5.5):                │
-  │     SAS(fp_A, fp_B, nonce_A, nonce_B)                    │
+  │     mode=qr : SAS(fp_A, fp_B, nonce_A, nonce_B)          │
+  │     mode=pin: SAS(fp_A, fp_B, nonce_A, nonce_B, PIN)     │
   │     แสดงตัวเลขใหญ่ 6 หลักบนหน้าจอทั้งสองเครื่อง          │
   │          [ผู้ใช้เทียบตัวเลขด้วยตา แล้วกด "ตรงกัน"/"ไม่ตรง" ทั้งสองเครื่อง]   │
   │◀──────────── 13. POST /api/v1/pair/finalize ─────────────│
@@ -323,13 +333,15 @@ Device A — Host (แสดง QR + PIN)                         Device B — C
 ```
 
 **กฎเหล็ก:**
-- Host MUST NOT ส่งค่า SAS ใน response ใด ๆ — ทั้งสองฝั่ง MUST คำนวณ SAS เองอย่างอิสระ
+- Host MUST NOT ส่งค่า SAS หรือ PIN ใน response ใด ๆ — ทั้งสองฝั่ง MUST คำนวณ SAS เองอย่างอิสระ
+- **Zero PIN Exposure on Wire:** ห้ามส่ง PIN, แฮชของ PIN, หรือค่าใด ๆ ที่ Derive มาจาก PIN ผ่านเครือข่ายโดยเด็ดขาด ป้องกันผู้โจมตีที่ดักฟัง TLS ทำ Offline Brute-force 10^6 ค่าได้ทันที
 - ผลลัพธ์เป็น `paired` ก็ต่อเมื่อ **ผู้ใช้ทั้งสองฝั่งกดยืนยัน "ตรงกัน"** เท่านั้น
 - ถ้าฝั่งใดกด "ไม่ตรง", ค่า Commitment ตรวจสอบไม่ผ่าน, หรือหมดเวลา → ทั้งสองฝั่ง MUST ทำลาย session และ MUST NOT บันทึกอะไรลง Trusted Store
 - Host MUST นับกรณี "ไม่ตรง" หรือ commitment ล้มเหลวเป็น failed attempt ของ IP ฝั่ง Client (§5.6)
 
 ### 5.5 Short Authentication String (SAS) Calculation
 
+#### 5.5.1 QR Mode SAS
 ```
 fp_lo, fp_hi = sort_ascending([fp_A, fp_B])              // เทียบเป็น string lowercase hex (64 chars)
 sas_input    = UTF8(fp_lo) ‖ UTF8(fp_hi) ‖ nonce_A ‖ nonce_B // 64 + 64 + 16 + 16 = 160 bytes
@@ -338,10 +350,20 @@ sas_value    = uint32_big_endian(sas_hash[0..3]) mod 1_000_000
 sas_display  = zero-pad 6 หลัก เช่น "042817" (UI MAY แสดงเป็น "042 817")
 ```
 
+#### 5.5.2 PIN Mode SAS (OOB Salted)
+```
+fp_lo, fp_hi = sort_ascending([fp_A, fp_B])
+pin_salt     = UTF8("dropclip-pin-salt-v1:" ‖ pin.trim())
+sas_input    = UTF8(fp_lo) ‖ UTF8(fp_hi) ‖ nonce_A ‖ nonce_B ‖ pin_salt
+sas_hash     = SHA-256(sas_input)
+sas_value    = uint32_big_endian(sas_hash[0..3]) mod 1_000_000
+sas_display  = zero-pad 6 หลัก
+```
+
 - `nonce_A` = Host CSPRNG nonce (16 bytes)
 - `nonce_B` = Client CSPRNG nonce (16 bytes) ที่ผ่านการ Verify Commitment แล้ว
 - `sort_ascending`: รับประกันว่าไม่ว่าจะคำนวณจากฝั่ง Host หรือ Client จะได้ลำดับ bytes ของ input เดียวกัน 100%
-- **ระดับความปลอดภัยของ Commit-then-Reveal:** แม้ผู้โจมตี MITM จะดักฟังเครือข่ายได้ แต่ไม่สามารถคำนวณสุ่ม keypair ให้เกิด SAS ชนกันได้อีกต่อไป เพราะ Client ได้ผูกมัดค่า $fp_B$ และ $nonce_B$ ไว้ล่วงหน้าใน Commitment $C_B$ ก่อนที่กระบวนการแลกเปลี่ยนจะเสร็จสิ้น และไม่สามารถเปลี่ยนค่าได้ในภายหลัง
+- **ระดับความปลอดภัย:** แม้ผู้โจมตี MITM จะดักฟังเครือข่ายได้ แต่ไม่สามารถคำนวณสุ่ม keypair ให้เกิด SAS ชนกันได้อีกต่อไป เพราะ (1) Client ได้ผูกมัดค่า $fp_B$ และ $nonce_B$ ไว้ล่วงหน้าใน Commitment $C_B$ และ (2) ใน PIN Mode ผู้โจมตีไม่ทราบค่า PIN 6 หลักที่แสดงบนหน้าจอจริง จึงไม่สามารถคำนวณหรือปลอมแปลง SAS ได้เลย ($P = 10^{-6}$)
 
 ### 5.6 Rate Limiting & Lockout
 
@@ -406,9 +428,9 @@ wss://<ip>:<port>/api/v1/ws        (mTLS + pinning ตาม §4)
 | `1000` | ปิดปกติ |
 | `4000` | Protocol error (hello timeout, ข้อความผิดลำดับ) |
 | `4001` | Duplicate connection (§6.2) |
-| `4003` | Not paired / Revoked |
+| `4003` | Unsupported Version (`E_UNSUPPORTED_VERSION` — ไม่มีช่วงเวอร์ชันร่วมกัน) |
+| `4004` | Not paired / Revoked (`E_NOT_PAIRED`) |
 | `4008` | Heartbeat timeout |
-| `4009` | Version mismatch |
 
 ---
 
@@ -446,15 +468,15 @@ wss://<ip>:<port>/api/v1/ws        (mTLS + pinning ตาม §4)
 
 > ⚠️ **`origin` คือหัวใจของ loop prevention** อย่าสับสนกับ transport-level sender
 
-ข้อความที่เกิน `WS_MAX_MESSAGE_SIZE` (64 KiB) MUST ถูกปฏิเสธด้วย `E_PAYLOAD_TOO_LARGE`
+ข้อความที่เกิน `WS_MAX_MESSAGE_SIZE` (64 KiB) บน Control Plane MUST ถูกปฏิเสธด้วย `E_PAYLOAD_TOO_LARGE`
 
 ### 7.2 Message Type Registry
 
 | Type | Direction | คำอธิบาย | SRS |
 |---|---|---|---|
-| `hello` | initiator → responder | เปิด session | FR-10 |
-| `hello.ack` | responder → initiator | ตอบรับ session | FR-10 |
-| `clipboard.update` | bidirectional | อัปเดต clipboard | FR-03A/B, FR-04 |
+| `hello` | initiator → responder | เปิด session พร้อมเจรจาเวอร์ชันและ Anti-Entropy hash | FR-10 |
+| `hello.ack` | responder → initiator | ตอบรับ session และ HLC sync | FR-10 |
+| `clipboard.update` | bidirectional | อัปเดต clipboard (inline $\le$ 32 KiB หรือ blob reference) | FR-03A/B, FR-04 |
 | `clipboard.clear` | bidirectional | ล้าง clipboard เมื่อ TTL หมด | FR-05 |
 | `file.offer` | sender → receiver | เสนอส่งไฟล์ | FR-07 |
 | `file.accept` | receiver → sender | ตอบรับ (auto หรือผู้ใช้กด) | FR-08, SF-07 |
@@ -464,6 +486,7 @@ wss://<ip>:<port>/api/v1/ws        (mTLS + pinning ตาม §4)
 | `file.cancel` | bidirectional | ยกเลิก transfer | FR-07 |
 | `device.revoked` | revoker → revoked | แจ้งเตือนเครื่องเป้าหมายว่าถูกเพิกถอน | FR-11 |
 | `cluster.revocation` | bidirectional / gossip | กระจายคำสั่งเพิกถอนพร้อมลายเซ็น ECDSA ไปยังทุก Peer | FR-11, SF-08 |
+| `revocation.sync` | bidirectional / anti-entropy | แลกเปลี่ยน Revocation Tombstones ที่ขาดหายหลัง Handshake | FR-11 |
 | `ping` / `pong` | bidirectional | heartbeat | FR-10 |
 | `error` | bidirectional | แจ้งข้อผิดพลาด | — |
 
@@ -483,12 +506,24 @@ wss://<ip>:<port>/api/v1/ws        (mTLS + pinning ตาม §4)
   "name": "MacBook Pro ของเจ",
   "os": "macos",
   "tier": 1,
+  "v": 1,
+  "min_v": 1,
   "app_version": "1.0.0",
   "capabilities": ["clip.text", "clip.image", "clip.push", "file", "file.resume"],
-  "clock": 1428,
-  "clip_head": { "clock": 1420, "origin": "550e8400-...", "hash": "9f86d0...", "msg_id": "6f1c2c1e-..." }
+  "tombstones_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "tombstone_count": 0,
+  "clip_head": { "hlc": { "l": 1757280000000, "c": 0, "d": "..." }, "origin": "550e8400-...", "hash": "9f86d0...", "msg_id": "6f1c2c1e-..." }
 }
 ```
+
+| Field | Type | คำอธิบาย |
+|---|---|---|
+| `v` | int | Wire protocol version ปัจจุบันของผู้ส่ง (เช่น 1) |
+| `min_v` | int | Wire protocol version ต่ำสุดที่ยังรองรับได้ (เช่น 1) |
+| `tombstones_hash` | hex | SHA-256 ของรายการ Revocation Tombstones ทั้งหมดในเครื่อง (สำหรับ Anti-Entropy) |
+| `tombstone_count` | int | จำนวน Revocation Tombstones ที่บันทึกไว้ |
+| `capabilities` | string[] | ดูตาราง capabilities ด้านล่าง |
+| `clip_head` | object? | รายการล่าสุดที่ยอมรับ (null ถ้าไม่มี) — ใช้ใน Catch-up §10.7 |
 
 | Capability | ความหมาย |
 |---|---|
@@ -499,7 +534,6 @@ wss://<ip>:<port>/api/v1/ws        (mTLS + pinning ตาม §4)
 | `file.resume` | รองรับ resume (§12.4) |
 
 - `device_id` MUST ตรงกับ CN ของ client/server cert และ record ใน Trusted Store มิฉะนั้น → `E_NOT_PAIRED`
-- `clip_head` = รายการล่าสุดที่ยอมรับ (null ถ้าไม่มี) — ใช้ใน Catch-up §10.7
 
 #### 7.4.2 `clipboard.update`
 
@@ -520,12 +554,18 @@ wss://<ip>:<port>/api/v1/ws        (mTLS + pinning ตาม §4)
 |---|---|---|
 | `content_type` | string | `text/plain` \| `text/uri-list` \| `image/png` \| `image/jpeg` (SRS §1.3.1) |
 | `hash` | hex | SHA-256 ของ **raw content ก่อน base64** (text = UTF-8 bytes) |
-| `size` | int | ขนาด raw content (bytes), MUST ≤ `CLIPBOARD_MAX_SIZE` |
+| `size` | int | ขนาด raw content (bytes), MUST $\le$ `CLIPBOARD_MAX_SIZE` (32 MiB) |
 | `is_concealed` | bool | MUST เป็น `false` เสมอใน v1 (ดูกฎข้อ 3) |
 | `ttl_seconds` | int? | null = ไม่หมดอายุ; ถ้ามีค่า MUST อยู่ในช่วง 5–3600 |
-| `inline` | string? | Base64 ของ raw content |
-| `blob_id` | uuid? | อ้างอิง blob บน Data Plane (§9.3) |
+| `inline` | string? | Base64 ของ raw content (ใช้เฉพาะข้อความ text ขนาด $\le$ 32 KiB) |
+| `blob_id` | uuid? | อ้างอิง blob บน Data Plane (§9.3) สำหรับข้อมูลขนาด $> 32$ KiB หรือรูปภาพทุกขนาด |
 | `meta` | object | `width`/`height` เป็น pixel, `dpi` เป็นตัวเลข (เช่น 72, 144) — ใช้กับรูปเท่านั้น |
+
+> **ความชัดเจนของขีดจำกัดขนาดข้อมูล (Payload Boundary Specification):**  
+> 1. **Control Plane WS Frame Max (`WS_MAX_MESSAGE_SIZE`):** `64 KiB` (ปฏิเสธด้วย `E_PAYLOAD_TOO_LARGE` หากเฟรมเกินนี้)  
+> 2. **Clipboard Inline Text Max (`CLIPBOARD_INLINE_THRESHOLD`):** `32 KiB` (หากข้อความ text $\le 32$ KiB จะส่งแบบ `inline` ใน Control Plane)  
+> 3. **Clipboard Blob Routing Threshold:** `> 32 KiB` (หาก text $> 32$ KiB หรือเป็นรูปภาพทุกขนาด จะส่งเป็น `blob_id` ผ่าน Data Plane HTTP)  
+> 4. **Clipboard Max Content Size (`CLIPBOARD_MAX_SIZE`):** `32 MiB` (33,554,432 bytes — ขนาดรวมสูงสุดของภาพ/ข้อความคลิปบอร์ด หากเกินจะถูกปฏิเสธด้วย `E_PAYLOAD_TOO_LARGE`)
 
 **กฎเหล็ก:**
 1. `size ≤ CLIPBOARD_INLINE_THRESHOLD` (32,768) → MUST ใช้ `inline`, `blob_id` MUST เป็น null
@@ -643,7 +683,7 @@ Reason ที่อนุญาต: `user_declined` | `insufficient_space` | `un
 #### 7.4.11 `error`
 
 ```json
-{ "code": "E_VERSION_MISMATCH", "message": "peer requires protocol v2", "fatal": true, "ref_msg_id": null }
+{ "code": "E_UNSUPPORTED_VERSION", "message": "no mutually supported protocol version", "fatal": true, "ref_msg_id": null }
 ```
 `message` MUST NOT มีเนื้อหา clipboard, path เต็ม หรือข้อมูลลับ
 
@@ -653,11 +693,11 @@ Reason ที่อนุญาต: `user_declined` | `insufficient_space` | `un
 
 | Code | HTTP | Fatal | ความหมาย |
 |---|---|---|---|
-| `E_VERSION_MISMATCH` | 400 | ✅ | protocol version ไม่ตรง |
+| `E_UNSUPPORTED_VERSION` | 400 | ✅ | ไม่มีช่วงโปรโตคอลเวอร์ชันที่รองรับร่วมกัน (Version Negotiation ล้มเหลว) |
 | `E_NOT_PAIRED` | 403 | ✅ | fingerprint ไม่อยู่ใน Trusted Store (รวมถึงหลังถูก revoke — FR-11) |
 | `E_REVOKED` | 403 | ✅ | ใช้เป็น reason ประกอบ `device.revoked` เท่านั้น |
 | `E_MALFORMED` | 400 | ⬜ | JSON parse ไม่ได้ / field ขาด / type ผิด / magic bytes ผิด |
-| `E_PAYLOAD_TOO_LARGE` | 413 | ⬜ | ข้อความ WS เกิน 64 KiB หรือ clipboard เกิน `CLIPBOARD_MAX_SIZE` |
+| `E_PAYLOAD_TOO_LARGE` | 413 | ⬜ | ข้อความ WS เกิน 64 KiB หรือ clipboard เกิน `CLIPBOARD_MAX_SIZE` (32 MiB) |
 | `E_RATE_LIMITED` | 429 | ⬜ | เกิน rate limit |
 | `E_PAIR_LOCKED` | 429 | ⬜ | ถูก lock จาก SAS/nonce ผิด 3 ครั้ง |
 | `E_PAIRING_INVALID` | 401 | ⬜ | ไม่มี session / session ถูกใช้แล้ว / nonce ไม่ตรง / fp ไม่ตรงกับ cert |
@@ -1137,8 +1177,15 @@ Sender                                                Receiver
    - ตรวจสอบว่า `revoker_id` เป็นโหนดที่ตนเชื่อถือใน Trusted Store (หากไม่เชื่อถือ → drop)
    - ตรวจสอบความสดของเวลา `timestamp` (ห้ามเกิน 24 ชม. จากเวลาปัจจุบัน)
    - ตรวจสอบลายเซ็น ECDSA ด้วย Public Key / Cert ของ `revoker_id` ที่ Pin ไว้ในเครื่อง
-   - หากลายเซ็นถูกต้อง: ทำการลบ `revoked_fp` ออกจาก Trusted Store ของตนเองทันที, ตัดการเชื่อมต่อและปิด Socket กับอุปกรณ์นั้นใน < 1 วินาที, และส่งต่อ (Gossip Forward) ข้อความนี้ไปยัง Peer อื่นในคลัสเตอร์ (พร้อม LRU Cache ป้องกันการส่งซ้ำ)
-5. **เกณฑ์การยอมรับ (Acceptance Criteria):**
+    - หากลายเซ็นถูกต้อง: ทำการลบ `revoked_fp` ออกจาก Trusted Store ของตนเองทันที, ตัดการเชื่อมต่อและปิด Socket กับอุปกรณ์นั้นใน < 1 วินาที, บันทึกลงใน `revoked_tombstones.json` แบบถาวร, และส่งต่อ (Gossip Forward) ข้อความนี้ไปยัง Peer อื่นในคลัสเตอร์ (พร้อม LRU Cache ป้องกันการส่งซ้ำ)
+5. **การป้องกันเครื่องที่ถูกขโมยสั่ง Revoke เครื่องอื่น (No Self-Revocation by Proxy & Interactive Alert):**
+   - **No Self-Revocation by Proxy:** โหนดที่ได้รับ `cluster.revocation` หากพบว่า `revoked_id == my_device_id` **MUST NOT** เพิกถอนตนเองหรือลบ Trusted Store ของตนเองเด็ดขาด ป้องกันกรณีเครื่องที่ถูกขโมยชิงส่งคำสั่งมาปิดสิทธิ์เครื่องจริง
+   - **Interactive User Notification:** เมื่อโหนดได้รับคำสั่งเพิกถอนเครื่องอื่นในคลัสเตอร์ แอป MUST แสดง System Notification หรือ In-App Banner แจ้งเตือนผู้ใช้ทันที: *"อุปกรณ์ [Device Name] ถูกสั่งเพิกถอนออกจากกลุ่มโดย [Revoker Name]"* เพื่อให้ผู้ใช้รับรู้เหตุการณ์ทันที
+6. **Persistent Revocation Tombstones & Handshake Anti-Entropy (สำหรับเครื่องที่ออฟไลน์):**
+   - ทุกเครื่องบันทึกประวัติการเพิกถอนลงในไฟล์ถาวร `revoked_tombstones.json` (`RevocationBroadcastToken[]`)
+   - ในขั้นตอน Handshake `hello` / `hello.ack` (§7.4.1) ทั้งสองฝ่ายส่ง `tombstones_hash` และ `tombstone_count` หากตรวจพบว่าค่า hash ไม่ตรงกัน หรือจำนวนไม่เท่ากัน โหนดที่มีรายการใหม่กว่าจะส่งข้อความ `revocation.sync` พร้อม Signed Token ที่ขาดหายไปให้อีกฝ่ายทันที
+   - กลไก Anti-Entropy นี้รับประกันว่าเครื่องที่ออฟไลน์ไป เมื่อกลับมาเชื่อมต่อกับโหนดใด ๆ ในคลัสเตอร์ จะได้รับประวัติการเพิกถอนครบถ้วน 100% ป้องกันเครื่องที่ถูก Revoke ลักลอบเชื่อมต่อกับเครื่องที่เพิ่งออนไลน์
+7. **เกณฑ์การยอมรับ (Acceptance Criteria):**
    - เครื่องที่สั่งเพิกถอน: ยุติการเชื่อมต่อและเพิกถอนในเครื่องตนเองเสร็จสิ้นภายใน **< 1.0 วินาที** (NFR-S05)
    - คลัสเตอร์ในวง LAN: โหนดที่ออนไลน์ทั้งหมดได้รับสัญญาณ Revocation และตัดการเชื่อมต่อกับเครื่องที่ถูกเพิกถอนเสร็จสิ้นภายใน **< 2.0 วินาที**
 
@@ -1426,17 +1473,22 @@ sas        = 3344579318 mod 1000000 = "579318"
 ```
 และ MUST ได้ `"579318"` เมื่อสลับ `fp_A` ↔ `fp_B` (symmetry)
 
-### 18.2 PIN Nonce Derivation — PIN mode
+### 18.2 SAS — PIN mode (OOB Salted)
 
 ```
-pin        = "123456"
-SHA-256("dropclip-pin-v1:123456") = eabf2def9324cd6e9cc8613f78d12e822bb6799e6b5de66fd56ba95a71004355
-pin_nonce  = first 16 bytes → base64 "6r8t75MkzW6cyGE/eNEugg=="
+fp_A     = "0000000000000000000000000000000000000000000000000000000000000000"
+fp_B     = "1111111111111111111111111111111111111111111111111111111111111111"
+nonce_A  = base64 "MDEyMzQ1Njc4OWFiY2RlZg=="   (= ASCII "0123456789abcdef", 16 bytes)
+nonce_B  = base64 "ZmVkY2JhOTg3NjU0MzIxMA=="   (= ASCII "fedcba9876543210", 16 bytes)
+pin      = "123456"
+pin_salt = UTF8("dropclip-pin-salt-v1:123456")
 
-SAS (fp_A, fp_B จาก 18.1 + pin_nonce):
-sas_hash   = 5312c35ac1dda6f4e38cf2053dc936e8a30d66a869636ea0ed5e0bc3cb1421b9
-sas        = "738586"
+sas_input = UTF8(fp_A) ‖ UTF8(fp_B) ‖ nonce_A ‖ nonce_B ‖ pin_salt
+sas_hash  = 33a7dee557f486e0024f598cdf00c03cbc41f5f9f9b2bd06fa59fc43dde4c6ea
+uint32_be = 0x33a7dee5 = 866639589
+sas       = 866639589 mod 1000000 = "639589"
 ```
+และ MUST ได้ `"639589"` เมื่อสลับ `fp_A` ↔ `fp_B` (symmetry) โดยไม่มีค่าใดที่ derive มาจาก PIN ถูกส่งผ่านเครือข่ายเด็ดขาด
 
 ### 18.3 Lamport Merge
 

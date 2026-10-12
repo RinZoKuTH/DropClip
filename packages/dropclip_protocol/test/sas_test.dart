@@ -8,6 +8,8 @@ void main() {
     const fpA = '0000000000000000000000000000000000000000000000000000000000000000';
     const fpB = '1111111111111111111111111111111111111111111111111111111111111111';
     final nonceBytes = Uint8List.fromList(ascii.encode('0123456789abcdef'));
+    final nonceA = Uint8List.fromList(ascii.encode('0123456789abcdef'));
+    final nonceB = Uint8List.fromList(ascii.encode('fedcba9876543210'));
 
     test('QR mode SAS calculation matches test vector 18.1 ("579318")', () {
       final sas = SasCalculator.calculateSas(fpA, fpB, nonceBytes);
@@ -20,11 +22,19 @@ void main() {
       expect(sasReverse, equals(sasForward));
     });
 
-    test('PIN mode SAS calculation matches test vector 18.2 ("738586")', () {
-      final pinNonce = SasCalculator.derivePinNonce('123456');
-      expect(pinNonce.length, equals(16));
-      final sas = SasCalculator.calculateSas(fpA, fpB, pinNonce);
-      expect(sas, equals('738586'));
+    test('OOB Salted PIN mode SAS matches test vector 18.2 ("639589")', () {
+      final sas = SasCalculator.calculateSasPinMode(fpA, fpB, nonceA, nonceB, '123456');
+      expect(sas, equals('639589'));
+
+      // Symmetry check
+      final sasSwapped = SasCalculator.calculateSasPinMode(fpB, fpA, nonceA, nonceB, '123456');
+      expect(sasSwapped, equals(sas));
+    });
+
+    test('PIN mode fails if PIN is incorrect', () {
+      final sasCorrect = SasCalculator.calculateSasPinMode(fpA, fpB, nonceA, nonceB, '123456');
+      final sasWrong = SasCalculator.calculateSasPinMode(fpA, fpB, nonceA, nonceB, '654321');
+      expect(sasWrong, isNot(equals(sasCorrect)));
     });
   });
 
@@ -34,7 +44,7 @@ void main() {
     final nonceA = Uint8List.fromList(ascii.encode('0123456789abcdef'));
     final nonceB = Uint8List.fromList(ascii.encode('fedcba9876543210'));
 
-    test('Calculates 6-digit dual SAS with symmetry', () {
+    test('Calculates 6-digit dual SAS with symmetry in QR mode', () {
       final sasHost = SasCalculator.calculateSasDual(fpA, fpB, nonceA, nonceB);
       final sasClient = SasCalculator.calculateSasDual(fpB, fpA, nonceA, nonceB);
 

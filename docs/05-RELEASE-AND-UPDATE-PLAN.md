@@ -87,9 +87,12 @@ flowchart TD
 - **Auto-Update:** ขับเคลื่อนด้วย **Sparkle Framework 2.x** ผ่าน HTTPS AppCast XML Feed พร้อมการตรวจสอบลายเซ็น Ed25519 ของไฟล์อัปเดต
 
 ### 3.2 Windows Platform Deployment
-- **Packaging:** Windows MSIX Package และ Standalone NSIS Executable Installer
+- **Packaging:** Windows MSIX Package และ Standalone NSIS Executable Installer (.exe)
 - **Code Signing:** ลงนามด้วย Microsoft Authenticode Certificate เพื่อป้องกันคำเตือน Windows SmartScreen Block
-- **Auto-Update:** ขับเคลื่อนด้วย **WinSparkle** หรือการเผยแพร่ผ่าน Windows Package Manager (`winget install DropClip`)
+  - *Primary Signing Architecture:* Hardware Token EV / Standard Code Signing (DigiCert / Sectigo) ผ่าน SignTool สำหรับการพัฒนาและ Release ของนิติบุคคล/นักพัฒนาในประเทศไทย
+  - *Cloud Signing Alternative:* Azure Trusted Signing (หากมี Azure Tenant องค์กรที่ผ่านการรับรอง)
+- **In-App Auto-Update:** ขับเคลื่อนด้วย **WinSparkle Framework** ผ่าน HTTPS AppCast XML Feed พร้อมตรวจสอบ SHA-256 Checksum และ Authenticode Signature
+- **Package Distribution Channel:** เผยแพร่ผ่าน Windows Package Manager Community Repository (`winget install DropClip`) ควบคู่กับ GitHub Releases (เป็นช่องทางติดตั้งเสริม ไม่ใช่ตัวขับเคลื่อน In-App Update หลัก)
 
 ### 3.3 Android Platform Deployment
 - **Packaging:** Android App Bundle (`.aab`) พร้อม ProGuard/R8 Obfuscation
@@ -103,29 +106,30 @@ flowchart TD
 - **Packaging:** iOS App Archive (`.ipa`) ควบคู่กับ Share Extension Target
 - **App Groups:** `group.com.dropclip.shared`
 - **Deployment Track:** เผยแพร่ผ่าน Apple TestFlight สำหรับ Dogfooding และยื่นขออนุมัติผ่าน Apple App Store Review
+- **Phased Release for Automatic Updates:** เปิดใช้งาน Apple Phased Release แบบ 7 วัน เพื่อกระจายความเสี่ยง (Day 1: 1%, Day 2: 2%, Day 3: 5%, Day 4: 10%, Day 5: 20%, Day 6: 50%, Day 7: 100%) พร้อมสิทธิ์ในการหยุดพัก (Pause) ชั่วคราวได้ตลอดเวลาหากพบปัญหาวิกฤติ
 
 ---
 
-## 4. Rollback Strategy & Emergency Triage Procedure
+## 4. Roll-Forward Strategy & Emergency Triage Procedure
 
-ในกรณีที่พบข้อผิดพลาดร้ายแรง (Critical Defect) ภายหลังการเผยแพร่เวอร์ชันใหม่ (เช่น บั๊กหน่วยความจำรั่ว, การซิงก์ข้อมูลขัดข้อง, หรือช่องโหว่ความปลอดภัย):
+เนื่องจากกลไก Auto-Update ของ App Store, Google Play, Sparkle, และ WinSparkle ไม่อนุญาตหรือไม่อำนวยความสะดวกในการ Downgrade ข้ามเวอร์ชันที่มี Version Number ต่ำกว่าเดิม DropClip จึงใช้ยุทธศาสตร์ **Roll-Forward Architecture** ในการรับมือข้อผิดพลาดร้ายแรง (Defect Remediation):
 
-### 4.1 Triage Severity Levels
-- **P0 — Emergency Blocker:** ปัญหาด้านความปลอดภัย, ข้อมูลสูญหาย, หรือแอป Crash ต่อเนื่องเมื่อเปิดใช้งาน
-  - *Response Time:* ต้องออก Hotfix ภายใน **< 24 ชั่วโมง**
+### 4.1 Triage Severity Levels & SLA
+- **P0 — Emergency Blocker:** ปัญหาด้านความปลอดภัย, ข้อมูลคลิปบอร์ดรั่วไหล, หรือแอป Crash ต่อเนื่องเมื่อเปิดใช้งาน
+  - *Response Time:* ยืนยันปัญหาภายใน **< 24 ชั่วโมง** และออก Hotfix Build ทันที
 - **P1 — High Priority:** ฟังก์ชันหลักใช้งานไม่ได้ (เช่น mDNS หาเครื่องไม่เจอ, ส่งไฟล์ขนาดใหญ่ไม่ผ่าน)
   - *Response Time:* ต้องออก Patch ภายใน **< 72 ชั่วโมง**
 
-### 4.2 Desktop Rollback (macOS / Windows)
-- ปรับปรุง AppCast XML Feed บน GitHub Releases ให้ชี้กลับไปยังเวอร์ชันก่อนหน้าที่มีความเสถียร (Previous Stable Release) พร้อมตั้งค่า `sparkle:criticalUpdate="true"`
-- ผู้ใช้ที่เปิดโปรแกรมจะได้รับการแจ้งเตือนให้อัปเดต/ถอยเวอร์ชันทันที
+### 4.2 Roll-Forward Release Execution
+- **Desktop (macOS / Windows):** สร้างและลงนาม Release ใหม่ทันทีโดยปรับเพิ่ม Patch Version (เช่น `v1.0.2` ซึ่งบรรจุโค้ดฐานเดิมที่เสถียรของ `v1.0.0` หรือ Hotfix เฉพาะจุด) เผยแพร่ผ่าน AppCast XML Feed พร้อมตั้งค่า `sparkle:criticalUpdate="true"`
+- **Android (Google Play):** หยุดการกระจายของ Staged Rollout ปัจจุบันทันที แล้วอัปโหลด AAB ใหม่ที่มี `versionCode` สูงกว่าเดิมเพื่อแทนที่ในสายการผลิต
+- **iOS (App Store):** กด Pause Phased Release ทันที และส่ง Build ใหม่พร้อมยื่นคำขอ **Expedited Review** กับ Apple App Review Team เพื่อขออนุมัติเผยแพร่ฉุกเฉินภายใน 24 ชั่วโมง
 
-### 4.3 Mobile Rollback (Android / iOS)
-- **Android:** ปรับลดสัดส่วน Staged Rollout บน Google Play Console ให้เหลือ 0% ทันที และเปิดเผยแพร่แพตช์ตัวใหม่ที่มี Version Code สูงกว่าเดิม
-- **iOS:** ยื่นคำขอ **Expedited Review** กับ Apple App Review Team เพื่อขอปล่อยแพตช์แก้ไขฉุกเฉินภายใน 24 ชั่วโมง
-
-### 4.4 Data Preservation Guarantee
-- การอัปเดตหรือถอยเวอร์ชัน **ต้องไม่ลบฐานข้อมูล Trusted Device Store (`trusted_devices.json.enc`) หรือกุญแจใน Hardware Keystore** เด็ดขาด ผู้ใช้ไม่ต้องจับคู่อุปกรณ์ใหม่หลังการอัปเดต
+### 4.3 Storage Schema Versioning & Backward Compatibility
+เพื่อรับประกันว่าการ Roll-Forward หรือการสลับเวอร์ชันจะไม่ทำลายข้อมูลผู้ใช้:
+- ไฟล์บันทึกข้อมูลถาวรทั้งหมด (`trusted_devices.json.enc`, `revoked_tombstones.json`, `state.json`) ต้องมีฟิลด์ `schema_version: 1`
+- การอัปเกรดต้องมีตัวแปลงข้อมูล (Migration Handler) ที่ปลอดภัย และรักษาความเข้ากันได้แบบย้อนหลัง (Backward Compatibility)
+- **Zero-Loss Guarantee:** ห้ามลบ Trusted Device Store หรือ Hardware Keystore เด็ดขาด ผู้ใช้ไม่ต้องจับคู่อุปกรณ์ใหม่หลังการอัปเดต
 
 ---
 
@@ -146,6 +150,12 @@ flowchart TD
 - **Foreground Service Policy:** ชี้แจงการใช้งาน Foreground Service ชนิด `connectedDevice` ต่อ Google Play Team ว่ามีความจำเป็นอย่างยิ่งสำหรับการรักษาการเชื่อมต่อ Socket สองทิศทางกับอุปกรณ์ที่จับคู่ในวง LAN เพื่อการรับส่งข้อมูลคลิปบอร์ดแบบเรียลไทม์
 - **Scoped Storage:** ปฏิบัติตามมาตรฐาน Scoped Storage (บันทึกรูปภาพ/วิดีโอผ่าน `MediaStore` และเอกสารลง Downloads) โดยไม่ต้องขอสิทธิ์อันตราย `MANAGE_EXTERNAL_STORAGE`
 
+### 5.4 Export Diagnostic Bundle (Zero-Cloud Incident Triage)
+เนื่องจาก DropClip ยึดถือหลัก Zero-Cloud จึงไม่มีระบบ Crash Analytics หรือ Telemetry อัตโนมัติส่งกลับเซิร์ฟเวอร์ การวิเคราะห์และแก้ไขปัญหา P0 จากภาคสนามจึงอาศัยกลไก:
+- **User-Initiated Export:** ผู้ใช้สามารถกดปุ่ม "Export Diagnostic Bundle" ใน Settings หน้าจอแอปพลิเคชัน
+- **Scrubbed Data Only:** บันทึกเฉพาะ Log ที่ผ่าน Scrubber แล้ว (`app.log`), ข้อมูลเวอร์ชันระบบปฏิบัติการ, สถานะเชื่อมต่อ mDNS/TCP, และ Masked Local Subnet โดย**ตัด Private Key, Certificate, ข้อมูลคลิปบอร์ด และเนื้อหาไฟล์ออก 100%**
+- ไฟล์จะถูกส่งออกเป็น `.zip` ให้ผู้ใช้แนบส่งทาง `security@dropclip.net` หรือ GitHub Issue ได้อย่างปลอดภัย
+
 ---
 
 ## 6. Software Bill of Materials (SBOM) & Supply Chain Security
@@ -155,3 +165,11 @@ flowchart TD
 2. **Automated Vulnerability Audit:** รันคำสั่ง `dart pub audit` และ GitHub Dependabot ทุกสัปดาห์
 3. **CycloneDX SBOM Generation:** ทุก Release Build ใน GitHub Actions จะส่งออกไฟล์ `sbom-dropclip.json` ตามมาตรฐาน CycloneDX 1.5 เพื่อให้ผู้ใช้งานและองค์กรสามารถตรวจสอบส่วนประกอบซอฟต์แวร์แบบโอเพนซอร์สได้อย่างโปร่งใส
 
+---
+
+## 7. Vulnerability Disclosure & Coordinated Release
+
+DropClip ปฏิบัติตามมาตรฐาน RFC 9116 ผ่าน `/.well-known/security.txt`:
+- **Security Contact:** `mailto:security@dropclip.net`
+- **PGP Encryption Key:** `https://dropclip.net/pgp-key.asc`
+- **Coordinated Vulnerability Disclosure (CVD):** ให้เวลาทีมงาน 7 วันในการพัฒนาและปล่อย Patch ผ่าน Roll-Forward ก่อนการเปิดเผยรายละเอียดสู่สาธารณะ

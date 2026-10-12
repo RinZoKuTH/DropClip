@@ -78,6 +78,7 @@ flowchart TB
 | **A-04** | **Incoming User Files** | **High** | I, A | ไฟล์ที่รับมาจากเครื่องอื่น ต้องตรวจสอบความถูกต้องครบถ้วน และไม่ให้เขียนทับไฟล์ภายนอกปลายทาง |
 | **A-05** | **Trusted Device Store (`trusted_devices.json.enc`)** | **High** | I, C | รายการคู่กุญแจและ Fingerprint ของเครื่องที่อนุญาต หากถูกแก้ไข ผู้โจมตีจะสามารถฉีดกุญแจแปลกปลอมเข้าสู่ระบบได้ |
 | **A-06** | **Hybrid Logical Clock (`state.json`)** | **Medium** | I | ค่า HLC สถานะคล็อก หากถูกปั่นป่วนอาจทำให้ข้อมูลใหม่ถูกปฏิเสธ (Stale drop) |
+| **A-07** | **Code Signing & Update Private Keys** | **Critical** | C, I | กุญแจลงนามซอฟต์แวร์ (Sparkle Ed25519 Key, Apple Developer ID, Windows Authenticode Certificate) หากหลุด ผู้โจมตีสามารถปล่อย Malicious Update ไปยังผู้ใช้ทุกคนได้ |
 
 ---
 
@@ -88,13 +89,13 @@ flowchart TB
    - *ข้อจำกัด:* ไม่สามารถเจาะทะลุเข้ารหัส TLS 1.3 โดยไม่มี Private Key
 2. **Internal Active Attacker (Man-in-the-Middle):**
    - *ความสามารถ:* ทำ ARP Cache Poisoning, DNS Spoofing, ปลอมแปลง mDNS Responder, แก้ไข/ตัดต่อ Packet ระหว่างทาง, สุ่มสร้าง Keypair ปลอม
-   - *ข้อจำกัด:* ไม่สามารถปลอมแปลง Out-of-Band Channel (หน้าจอแสดงผล QR Code / PIN)
+   - *ข้อจำกัด & การคุ้มครอง Secret:* ผู้โจมตีไม่สามารถมองเห็นหน้าจอของเครื่องผู้ใช้ (OOB Visual Channel — QR Code / PIN) และ **โปรโตคอลห้ามส่ง PIN หรือค่าที่ derive จาก PIN ผ่านเครือข่ายเด็ดขาด** ทำให้ผู้โจมตีไม่สามารถทำ Offline Dictionary Brute-Force (10^6 ค่า) บนสายได้
 3. **Malicious Local Application (Co-located Malware):**
    - *ความสามารถ:* แอปพลิเคชันอื่นบนเครื่องผู้ใช้ที่พยายามดักฟังพอร์ต TCP ในเครื่อง, พยายามอ่านโฟลเดอร์ไฟล์ข้อมูลของ DropClip
    - *ข้อจำกัด:* ถูกกักกันโดย OS App Sandbox / User Permission (ไม่ได้รับสิทธิ์ Root/Administrator)
 4. **Stolen / Compromised Peer Node:**
    - *ความสามารถ:* โน้ตบุ๊กหรือมือถือที่เคย Pair ถูกขโมย ผู้โจมตีครอบครองเครื่องที่ได้รับอนุญาตในคลัสเตอร์
-   - *เป้าหมายการป้องกัน:* ผู้ใช้สั่ง Revoke จากเครื่องที่เหลือ แล้วคำสั่งต้องตัดสิทธิ์เครื่องที่หายทั่วทั้งระบบ
+   - *เป้าหมายการป้องกัน:* ผู้ใช้สั่ง Revoke จากเครื่องที่เหลือ แล้วคำสั่งต้องตัดสิทธิ์เครื่องที่หายทั่วทั้งระบบอย่างปลอดภัยโดยเครื่องที่หายไม่สามารถชิง Revoke เครื่องจริงทิ้งได้
 
 ---
 
@@ -105,8 +106,9 @@ flowchart TB
 | Threat ID | Threat Scenario | Attack Vector | Component | Impact | Severity | Mitigation Strategy |
 |:---:|---|---|---|---|:---:|---|
 | **T-S01** | Rogue mDNS Peer Spoofing | ผู้โจมตีประกาศ `_dropclip._tcp.local` ปลอม เพื่อล่อให้เหยื่อส่งข้อมูลหา | Discovery Engine | ปานกลาง | Medium | **Fingerprint Pinning (§4.4):** แอปปฏิเสธการเชื่อมต่อทุกชนิดจากโหนดที่ Fingerprint ไม่อยู่ใน Trusted Store ด้วย `403 E_NOT_PAIRED` |
-| **T-S02** | Active MITM on Pairing (SAS Collision Attack) | ผู้โจมตีอยู่คั่นกลางขณะ Pair สุ่ม Keypair จำนวนมากจนได้ SAS 6 หลักตรงกับเหยื่อ | Pairing Protocol | วิกฤติ | **High (CVSS 7.5)** | **Commit-then-Reveal SAS & OOB QR Nonce (ADR-009):** Client ส่ง Commitment $C_B = H(\text{nonce}_B \parallel \text{fp}_B)$ ล่วงหน้า และ Nonce A ส่งผ่าน QR หน้าจอเท่านั้น ผู้โจมตีไม่สามารถสุ่มแก้ Keypair ได้อีกต่อไป |
-| **T-S03** | Compromised Peer Replay Identity | ผู้โจมตีที่ถูก Revoke พยายาม Replay Certificate เดิม | Transport Layer | สูง | High | **Signed Cluster Revocation (§13):** โหนดทุกเครื่องลบ Fingerprint ออกจาก Trusted Store ทันทีที่ได้รับ Token |
+| **T-S02** | Active MITM on Pairing (SAS Collision & PIN Offline Attack) | ผู้โจมตีอยู่คั่นกลางขณะ Pair ดักจับแพ็กเก็ตเพื่อถอดรหัส PIN หรือสุ่ม Keypair ให้ SAS ชนกัน | Pairing Protocol | วิกฤติ | **High (CVSS 7.5)** | **Zero PIN on Wire & Commit-then-Reveal SAS (ADR-009):** (1) ห้ามส่ง PIN หรือ pin_nonce บนสายเด็ดขาด ตัดความเสี่ยง Offline Brute-force $10^6$, (2) Client ส่ง $C_B$ ก่อน Host ส่ง $N_A$, (3) PIN นำมาใช้เป็น OOB Salt คำนวณ SAS ในเครื่องเท่านั้น ผู้โจมตีไม่ทราบ PIN จึงไม่สามารถคำนวณ SAS ให้ตรงกันได้ ($P = 10^{-6}$) |
+| **T-S03** | Compromised / Stolen Peer Malicious Revocation | เครื่องที่ถูกขโมยใช้ Private Key ของตนเองชิงส่งคำสั่ง Revoke โหนดจริงทั้งหมดในคลัสเตอร์ | Revocation Engine | สูง | High | **No Self-Revocation by Proxy & Interactive Alert (§13.2):** โหนดที่ได้รับคำสั่ง Revoke จะไม่ยอมลบตนเองออกจากระบบเด็ดขาดหาก `revoked_id == my_id` พร้อมแสดง System Notification แจ้งเตือนผู้ใช้ทันทีเมื่อมีโหนดอื่นถูกเพิกถอน |
+| **T-S04** | Offline Peer Reconnection after Cluster Revocation | โหนดออฟไลน์ขณะมีการสั่ง Revoke เมื่อกลับมาออนไลน์อาจถูกเครื่องที่ถูกเพิกถอนเชื่อมต่อเข้ามาได้ | Handshake Engine | สูง | High | **Persistent Tombstones & Handshake Anti-Entropy (§13.2):** ทุกโเก็บบันทึก `revoked_tombstones.json` ถาวร และส่ง `tombstones_hash` แลกเปลี่ยนกันทุกครั้งที่ทำ `hello` หากพบว่าขาด ให้ดึงข้อมูลผ่าน `revocation.sync` ทันที |
 
 ---
 
@@ -133,7 +135,7 @@ flowchart TB
 
 | Threat ID | Threat Scenario | Attack Vector | Component | Impact | Severity | Mitigation Strategy |
 |:---:|---|---|---|---|:---:|---|
-| **T-I01** | Password Manager Clipboard Leakage | ผู้ใช้ Copy รหัสผ่านจาก 1Password, Bitwarden แล้วระบบซิงก์รหัสผ่านข้ามเครือข่าย | Clipboard Watcher | หายนะ | **Critical (CVSS 8.8)** | **100% Recognized Sensitive Marker Filtering (NFR-S04, §10.4):** Native hooks ดักจับ `org.nspasteboard.ConcealedType`, `ExcludeClipboardContentFromMonitorProcessing`, `EXTRA_IS_SENSITIVE` สกัดกั้นก่อนอ่าน payload 100% |
+| **T-I01** | Password Manager Clipboard Leakage | ผู้ใช้ Copy รหัสผ่านจาก 1Password, Bitwarden แล้วระบบซิงก์รหัสผ่านข้ามเครือข่าย | Clipboard Watcher | หายนะ | **Critical (CVSS 8.8)** | **100% Recognized Sensitive Marker Filtering (NFR-S04, §10.4):** Native hooks ดักจับ `org.nspasteboard.ConcealedType`, `org.nspasteboard.TransientType`, `ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory`, `ClipDescription.EXTRA_IS_SENSITIVE` สกัดกั้นก่อนอ่าน payload 100% |
 | **T-I02** | Private Key Exfiltration from Disk | มัลแวร์ในเครื่องพยายามอ่าน Private Key จาก App Directory | Storage Layer | วิกฤติ | **High (CVSS 7.8)** | **OS Secure Hardware Storage (NFR-S02, §4.2):** Private key เก็บใน macOS Keychain, Windows DPAPI/CNG, Android Keystore โดยไม่มี Plaintext บนดิสก์เด็ดขาด |
 | **T-I03** | Sensitive Data Leakage in Logs / Crash Dumps | บันทึก Log หรือ Error dump ติดข้อมูลคลิปบอร์ดหรือ Private key | Telemetry / Logger | สูง | High | **Structured Logging Scrubber (NFR-S02, T0.3):** กลไก Scrubber ตรวจสอบและตัด Private Key, Password, และ Full Clipboard Payload ออกจาก Log 100% |
 
@@ -143,7 +145,7 @@ flowchart TB
 
 | Threat ID | Threat Scenario | Attack Vector | Component | Impact | Severity | Mitigation Strategy |
 |:---:|---|---|---|---|:---:|---|
-| **T-D01** | Memory Flooding via Giant Clipboard Payload | โหนดส่งข้อความคลิปบอร์ดขนาด 500 MB เข้ามาทาง WebSocket Control Plane | Control Plane | สูง | High | **Strict Size Routing (§10.2):** ข้อมูลคลิปบอร์ดจำกัดไม่เกิน 32 MB และบน Control Plane บล็อกทันทีถ้าเกิน 64 KiB (`E_PAYLOAD_TOO_LARGE`) |
+| **T-D01** | Memory Flooding via Giant Clipboard Payload | โหนดส่งข้อความคลิปบอร์ดขนาด 500 MB เข้ามาทาง WebSocket Control Plane | Control Plane | สูง | High | **Explicit Size Quotas (§7.1, §10.2):** Control Plane WS Frame จำกัดสูงสุด **64 KiB**; ข้อความแบบ Inline จำกัดสูงสุด **32 KiB**; ข้อมูลภาพ/ข้อความขนาดใหญ่บน Data Plane จำกัดสูงสุด **32 MiB** หากเกินปฏิเสธด้วย `E_PAYLOAD_TOO_LARGE` ทันที |
 | **T-D02** | Disk Exhaustion Attack via Unsolicited Files | โหนดส่งไฟล์ขนาดใหญ่มาเต็มดิสก์ของเหยื่อ | File Receiver | สูง | High | **Explicit User Acceptance & Pre-flight Disk Check (FR-08):** ต้องกดยอมรับ `file.offer` (ยกเว้น Auto-accept ใน Trusted Zone) พร้อมตรวจพื้นที่ดิสก์ก่อนรับ หากไม่พอส่ง `507 E_DISK_FULL` |
 | **T-D03** | Future Clock Drift Attack (LWW Hijack) | โหนดตั้งเวลาล่วงหน้าไปปี 2035 เพื่อให้ข้อมูลของตนชนะ LWW ตลอดกาล | HLC Engine | สูง | High | **Bounded Clock Drift Enforcement (§10.3):** หาก remote HLC $l - \text{nowMs} > 60,000\text{ ms}$ (60 วินาที) ระบบปฏิเสธข้อความทันที (`clipboard.clock_drift_exceeded`) |
 
@@ -169,12 +171,17 @@ graph TD
     A1["Method 1: Rogue Keypair SAS Collision"]
     A1_1["Sniff Nonce on Network"]
     A1_2["Brute-force Keypairs to match SAS mod 10^6"]
-    Mitigation1["MITIGATED by ADR-009:<br/>1. Nonce_A sent Out-of-Band (QR)<br/>2. Client sends Commitment(Nonce_B, Fp_B) first<br/>Pre-commitment prevents brute-force substitution!"]
+    Mitigation1["MITIGATED by ADR-009 & §5.4:<br/>1. Nonce_A sent Out-of-Band (QR)<br/>2. Client sends Commitment(Nonce_B, Fp_B) first<br/>Pre-commitment prevents brute-force substitution!"]
 
     A2["Method 2: Social Engineering / Blind User Acceptance"]
     A2_1["Rogue node initiates pairing request"]
     A2_2["Victim user blindly clicks 'Confirm' without checking SAS"]
     Mitigation2["MITIGATED by Protocol Spec §5.4:<br/>1. Rate limit (5 req/min, 3 fails = 5-min lockout)<br/>2. SAS digits displayed prominently in bold UI<br/>3. Both devices MUST explicitly confirm match"]
+
+    A3["Method 3: Offline PIN Dictionary Attack"]
+    A3_1["Sniff PIN / Hash from Network Traffic"]
+    A3_2["Brute-force 10^6 PIN search space offline"]
+    Mitigation3["MITIGATED by Protocol Spec §5.5:<br/>1. Zero PIN on Wire (no PIN hash sent)<br/>2. PIN used strictly as local OOB salt in SAS<br/>Attacker has NO offline oracle to test PIN guesses!"]
 
     Root --> A1
     A1 --> A1_1
@@ -185,6 +192,11 @@ graph TD
     A2 --> A2_1
     A2 --> A2_2
     A2_2 -.-> Mitigation2
+
+    Root --> A3
+    A3 --> A3_1
+    A3 --> A3_2
+    A3_2 -.-> Mitigation3
 ```
 
 ### 6.2 Attack Tree 2: Unauthorized File System Ingress / Path Traversal
@@ -224,6 +236,8 @@ graph TD
 | **T-E01** | Arbitrary Code Execution on Receipt | `CVSS:3.1/AV:A/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H` | **8.0** | **High** | Mitigated |
 | **T-I01** | Password Manager Clipboard Leak | `CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N` | **6.2** | **Medium** | Mitigated |
 | **T-S02** | Active MITM on Pairing (Pre-ADR-009) | `CVSS:3.1/AV:A/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:N` | **6.8** | **Medium** | Mitigated |
+| **T-S03** | Stolen Peer Malicious Self-Revocation | `CVSS:3.1/AV:A/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H` | **7.1** | **High** | Mitigated |
+| **T-S04** | Offline Peer Stale Revocation Replay | `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:H` | **7.1** | **High** | Mitigated |
 | **T-D03** | Clock Drift Hijack of LWW | `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:H` | **7.1** | **High** | Mitigated |
 | **T-R01** | Unauthenticated Revocation Spoofing | `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:H` | **8.1** | **High** | Mitigated |
 
@@ -235,3 +249,25 @@ graph TD
 1. **Phase 1 Exit Review (`GATE-1`):** Desktop Security Audit ตรวจสอบ Certificate Pinning, Revocation Broadcast < 2s, 100% Recognized Sensitive Marker Filtering, และ Path Traversal 12/12 Attack Vectors
 2. **Phase 4 Hardening (`T4.2`):** Comprehensive Security Audit & Mobile Penetration Testing ตรวจสอบ Fuzzing 100,000 requests, Log Scrubber Verification, และ Third-party Penetration Testing 2 วัน
 
+---
+
+## 9. Vulnerability Disclosure Policy & security.txt
+
+DropClip ยึดถือนโยบาย **Coordinated Vulnerability Disclosure (CVD)** อย่างเคร่งครัด เพื่อสร้างความเชื่อมั่นสูงสุดแก่ผู้ใช้งานและชุมชน Open-Source Security:
+
+### 9.1 RFC 9116 `security.txt` Specification
+ไฟล์ `security.txt` จะถูกเผยแพร่ที่ `https://dropclip.net/.well-known/security.txt` และบรรจุใน repository (`/.well-known/security.txt`):
+
+```text
+Contact: mailto:security@dropclip.net
+Expires: 2027-12-31T23:59:59.000Z
+Encryption: https://dropclip.net/pgp-key.asc
+Preferred-Languages: th, en
+Canonical: https://dropclip.net/.well-known/security.txt
+Policy: https://dropclip.net/security-policy
+```
+
+### 9.2 Incident Response & Triage SLA
+- **P0 Critical Triage (Remote Code Execution, Wire Eavesdropping, Auth Bypass):** ยืนยันและจัดลำดับความสำคัญภายใน **24 ชั่วโมง** พร้อมกำหนด Lead Security Architect รับผิดชอบ
+- **Remediation & Patching:** พัฒนาและทดสอบ Hotfix ให้แล้วเสร็จภายใน **7 วัน** พร้อมประสานงานปล่อยอัปเดตแบบ Roll-Forward ทันที
+- **Safe Harbor Guarantee:** DropClip รับรอง Safe Harbor แก่นักวิจัยความปลอดภัยที่รายงานช่องโหว่โดยสุจริต ไม่กระทำการดักขโมยข้อมูลจริง ไม่โจมตีแบบ DoS และให้เวลาทีมงานแก้ไขก่อนเปิดเผยต่อสาธารณะ

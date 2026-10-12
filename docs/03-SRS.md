@@ -52,10 +52,10 @@
 
 ### 1.3.1 สิ่งที่ระบบทำได้ (In Scope)
 * **แพลตฟอร์มที่รองรับ:**
-  - macOS: เวอร์ชัน 12.0 (Monterey) ขึ้นไป (รองรับสถาปัตยกรรม Apple Silicon และ Intel)
-  - Windows: Windows 10 (Build 19041) ขึ้นไป (รองรับสถาปัตยกรรม x64 และ ARM64)
-  - iOS: เวอร์ชัน 15.0 ขึ้นไป (รองรับ iPhone และ iPad)
-  - Android: เวอร์ชัน 10 (API Level 29) ขึ้นไป (สถาปัตยกรรม ARM64)
+  - macOS: เวอร์ชัน 12.0 (Monterey) ขึ้นไป จนถึง macOS เวอร์ชันล่าสุด ณ วันที่เปิดตัว (macOS 15 Sequoia) (รองรับสถาปัตยกรรม Apple Silicon และ Intel)
+  - Windows: Windows 10 (Build 19041) หรือ Windows 11 ขึ้นไป จนถึงเวอร์ชันล่าสุด ณ วันที่เปิดตัว (รองรับสถาปัตยกรรม x64 และ ARM64)
+  - iOS: เวอร์ชัน 15.0 ขึ้นไป จนถึง iOS เวอร์ชันล่าสุด ณ วันที่เปิดตัว (iOS 18) (รองรับ iPhone และ iPad)
+  - Android: เวอร์ชัน 10 (API Level 29) ขึ้นไป จนถึง Android เวอร์ชันล่าสุด ณ วันที่เปิดตัว (Android 15) (สถาปัตยกรรม ARM64)
 * **ชนิดข้อมูลคลิปบอร์ดที่รองรับ:** ข้อความธรรมดา (Plain Text), ลิงก์ (URLs), รูปภาพรูปแบบ PNG และ JPEG
 * **ความสามารถด้านการถ่ายโอนไฟล์:**
   - ถ่ายโอนไฟล์และโฟลเดอร์แบบ Streaming ผ่าน HTTP/1.1 Chunked over TLS 1.3 ไม่จำกัดขนาด
@@ -260,19 +260,22 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-02: การจับคู่อุปกรณ์และการแลกเปลี่ยนกุญแจ (Secure Device Pairing & Key Exchange)
-* **Description:** ระบบต้องอนุญาตให้ผู้ใช้สร้างความเชื่อถือระหว่างอุปกรณ์สองเครื่องผ่านการแลกเปลี่ยนกุญแจ ECDSA P-256 และยืนยันรหัส SAS แบบ Commit-then-Reveal เพื่อป้องกันการโจมตี Active MITM Brute-force
-* **Input:** ข้อมูล QR Code Payload (IP, Port, Fingerprint, Nonce_A, Expire Time) และการยืนยันรหัสจากผู้ใช้
-* **Process (Commit-then-Reveal Scheme):**
-  1. เครื่องริเริ่ม (Host) สุ่มสร้างค่า `nonce_A` 16 ไบต์ (CSPRNG) กำหนดอายุ 60 วินาที แสดงผ่าน QR Code บนหน้าจอ (Visual Out-of-Band Channel)
-  2. เครื่องที่สอง (Client) สแกน QR Code เพื่อรับ `nonce_A` ทางกายภาพ, สุ่มค่า `nonce_B` 16 ไบต์ และส่งคำนวณ Commitment $C_B = \text{SHA-256}(\text{"dropclip-commit-v1:"} \parallel nonce_B \parallel fp_B)$
-  3. Client เปิดการเชื่อมต่อ TLS 1.3 mTLS ส่ง $C_B$ และ `nonce_A` ผ่าน `POST /api/v1/pair` ไปยัง Host
+* **Description:** ระบบต้องอนุญาตให้ผู้ใช้สร้างความเชื่อถือระหว่างอุปกรณ์สองเครื่องผ่านการแลกเปลี่ยนกุญแจ ECDSA P-256 และยืนยันรหัส SAS แบบ Commit-then-Reveal พร้อมรองรับ Manual PIN Mode ที่ปราศจากการส่ง PIN บนสายเครือข่าย เพื่อป้องกันการโจมตี Active MITM Brute-force
+* **Input:** ข้อมูล QR Code Payload (IP, Port, Fingerprint, Nonce_A, Expire Time) หรือการระบุ Host IP + PIN 6 หลัก และการยืนยันรหัสจากผู้ใช้
+* **Process (Commit-then-Reveal Scheme & Zero PIN on Wire):**
+  1. เครื่องริเริ่ม (Host) สุ่มสร้างค่า `nonce_A` 16 ไบต์ (CSPRNG) กำหนดอายุ 60 วินาที แสดงผ่าน QR Code บนหน้าจอ (Visual Out-of-Band Channel) หรือแสดง PIN 6 หลักในโหมด Manual PIN
+  2. เครื่องที่สอง (Client) ได้รับ `nonce_A` ผ่านการสแกน QR Code (หรือผู้ใช้พิมพ์ PIN 6 หลักในโหมด Manual โดยระบบ Client ห้ามส่งค่า PIN หรือ Hash ของ PIN บนเครือข่ายเด็ดขาด)
+  3. Client สุ่มค่า `nonce_B` 16 ไบต์ และส่ง Commitment $C_B = \text{SHA-256}(\text{"dropclip-commit-v1:"} \parallel nonce_B \parallel fp_B)$ ผ่าน `POST /api/v1/pair` ใน mTLS Handshake ไปยัง Host
   4. Client เปิดเผย `nonce_B` ผ่าน `POST /api/v1/pair/confirm`; Host ตรวจสอบความถูกต้องของ Commitment $C_B$
-  5. ทั้งสองฝั่งนำ Key Fingerprint ของทั้งสองเครื่องมาเรียงตามลำดับตัวอักษร ผสานกับค่า `nonce_A` และ `nonce_B` แล้วคำนวณค่าแฮชสร้างรหัสตัวเลข 6 หลัก (Short Authentication String - SAS)
+  5. ทั้งสองฝั่งคำนวณรหัสตัวเลข 6 หลัก (Short Authentication String - SAS):
+     - *QR Mode:* $\text{SAS} = \text{SHA-256}(fp_{lo} \parallel fp_{hi} \parallel nonce_A \parallel nonce_B) \bmod 10^6$
+     - *Manual PIN Mode (Zero PIN on Wire):* $\text{SAS} = \text{SHA-256}(fp_{lo} \parallel fp_{hi} \parallel nonce_A \parallel nonce_B \parallel \text{"dropclip-pin-salt-v1:"} \parallel \text{UTF8}(\text{PIN})) \bmod 10^6$
   6. แสดงรหัส SAS บนหน้าจอทั้งสองเครื่องเพื่อให้ผู้ใช้ตรวจสอบความตรงกันด้วยตาเปล่า
   7. เมื่อผู้ใช้กดปุ่มยืนยันทั้งสองฝั่ง ระบบจะบันทึก Key Fingerprint ของอีกฝ่ายลงใน Trusted Device Store ถาวร
 * **Output:** อุปกรณ์ทั้งสองเข้าสู่สถานะ Paired/Trusted และเปิดช่องทาง WebSocket สื่อสารที่ปลอดภัย
 * **Data Validation:** ตรวจสอบอายุของ Nonce (หมดอายุใน 60 วินาที), ค่า Commitment และรูปแบบ Key Fingerprint (Hex 64 ตัวอักษร)
 * **Access Control & Security:** 
+  - ห้ามส่ง PIN หรือค่าที่ derive มาจาก PIN ผ่านสายเครือข่ายเด็ดขาด เพื่อตัดการโจมตีแบบ Offline Dictionary Attack (10^6 ค่า)
   - จำกัดอัตราการขอจับคู่ไม่เกิน 5 ครั้งต่อนาทีต่อหนึ่ง IP Address
   - หากกดยืนยันรหัสผิดพลาดหรือ commitment ล้มเหลวติดต่อกัน 3 ครั้ง ระบบต้องระงับการเชื่อมต่อจาก IP นั้นเป็นเวลา 5 นาที
 
@@ -436,27 +439,38 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 
 ---
 
-### FR-10: การจัดการสถานะและการเชื่อมต่อใหม่อัตโนมัติ (Connection State & Reconnection Management)
-* **Description:** ระบบต้องเฝ้าระวังสถานะของช่องทางการสื่อสาร และเชื่อมต่อใหม่โดยอัตโนมัติเมื่อเกิดข้อผิดพลาด
-* **Input:** สถานะการรับส่ง Heartbeat (Ping/Pong) บน WebSocket
+### FR-10: การจัดการสถานะ การตกลงเวอร์ชัน และการเชื่อมต่อใหม่อัตโนมัติ (Connection State, Protocol Negotiation & Reconnection)
+* **Description:** ระบบต้องเฝ้าระวังสถานะของช่องทางการสื่อสาร ตกลงเวอร์ชันโปรโตคอลระหว่างอุปกรณ์ และเชื่อมต่อใหม่โดยอัตโนมัติเมื่อเกิดข้อผิดพลาด
+* **Input:** ข้อมูล `hello` handshake และสถานะการรับส่ง Heartbeat (Ping/Pong) บน WebSocket
 * **Process:**
-  1. ส่งแพ็กเก็ต Ping ทุก 15 วินาที หากไม่ได้รับ Pong ภายใน 45 วินาที ให้ถือว่าช่องทางสื่อสารขาดการเชื่อมต่อ (Authoritative Liveness ตัดสินแทน mDNS Stale)
-  2. เมื่อการเชื่อมต่อขาด ให้เริ่มกลไก Reconnection แบบ Exponential Backoff (1, 2, 4, 8, 16, สูงสุด 30 วินาที พร้อม Jitter ±20%)
-  3. พักข้อความคลิปบอร์ดที่เกิดขึ้นระหว่างออฟไลน์ไว้ใน Outbound Queue (สูงสุด 50 รายการ)
-  4. เมื่อเชื่อมต่อสำเร็จ ส่งข้อมูลจาก Queue และดึงข้อมูลล่าสุดจาก Catch-up Queue มาอัปเดต
-* **Output:** ช่องทางการสื่อสารคงสถานะออนไลน์ต่อเนื่อง และไม่มีปัญหา Socket ค้างสะสมในระบบ (No Socket Leak)
+  1. *การตกลงเวอร์ชัน (Protocol Negotiation):* ในขั้นตอน Handshake ผ่านข้อความ `hello` และ `hello.ack`:
+     - แต่ละโหนดระบุเวอร์ชันโปรโตคอลปัจจุบัน `v` และเวอร์ชันต่ำสุดที่รองรับ `min_supported_v`
+     - ตรวจสอบความเข้ากันได้: $\min(\text{local.v}, \text{remote.v}) \ge \max(\text{local.min\_v}, \text{remote.min\_v})$
+     - หากเข้ากันได้ ให้ใช้เวอร์ชันที่ต่ำกว่าในคู่นั้นสำหรับการสื่อสาร
+     - หากไม่มีช่วงเวอร์ชันที่รองรับร่วมกัน ให้ปิดการเชื่อมต่อ WebSocket ทันทีด้วย Close Code **4003** และส่ง Error Code **`E_UNSUPPORTED_VERSION`**
+  2. *การตรวจสอบสถานะ (Liveness Monitoring):* ส่งแพ็กเก็ต Ping ทุก 15 วินาที หากไม่ได้รับ Pong ภายใน 45 วินาที ให้ถือว่าช่องทางสื่อสารขาดการเชื่อมต่อ (Authoritative Liveness ตัดสินแทน mDNS Stale)
+  3. *การเชื่อมต่อใหม่ (Reconnection Backoff):* เมื่อการเชื่อมต่อขาด ให้เริ่มกลไก Reconnection แบบ Exponential Backoff (1, 2, 4, 8, 16, สูงสุด 30 วินาที พร้อม Jitter ±20%)
+  4. *การจัดการคิว (Queue Catch-up):* พักข้อความคลิปบอร์ดที่เกิดขึ้นระหว่างออฟไลน์ไว้ใน Outbound Queue (สูงสุด 50 รายการ) เมื่อเชื่อมต่อสำเร็จ ส่งข้อมูลจาก Queue และดึงข้อมูลล่าสุดจาก Catch-up Queue มาอัปเดต
+* **Output:** ช่องทางการสื่อสารคงสถานะออนไลน์ต่อเนื่อง ตกลงเวอร์ชันได้อย่างถูกต้อง และไม่มีปัญหา Socket ค้างสะสมในระบบ (No Socket Leak)
 
 ---
 
 ### FR-11: การจัดการอุปกรณ์และการเพิกถอนสิทธิ์ทั่วทั้งคลัสเตอร์ (Device Management & Signed Cluster Revocation)
-* **Description:** ระบบต้องอนุญาตให้ผู้ใช้ตรวจสอบรายการอุปกรณ์ และเพิกถอนสิทธิ์อุปกรณ์ที่ไม่ต้องการได้ทันที พร้อมกระจายคำสั่งเพิกถอนที่มีลายเซ็นดิจิทัลไปยังทุกอุปกรณ์ในคลัสเตอร์
+* **Description:** ระบบต้องอนุญาตให้ผู้ใช้ตรวจสอบรายการอุปกรณ์ และเพิกถอนสิทธิ์อุปกรณ์ที่ไม่ต้องการได้ทันที พร้อมกระจายคำสั่งเพิกถอนที่มีลายเซ็นดิจิทัลไปยังทุกอุปกรณ์ในคลัสเตอร์ และซิงก์สถานะกับอุปกรณ์ที่เคยออฟไลน์ผ่าน Anti-Entropy
 * **Input:** คำสั่งเพิกถอนอุปกรณ์ (Revoke Command) จากหน้าต่างการตั้งค่า
 * **Process:**
   1. แสดงรายการอุปกรณ์ที่เคยจับคู่ทั้งหมด พร้อมชื่อ ชนิด OS และสถานะออนไลน์/ออฟไลน์
   2. เมื่อผู้ใช้สั่งเพิกถอน:
      - เครื่องที่สั่งเพิกถอนลบ Key Fingerprint ออกจาก Trusted Store ในเครื่องตนเองทันที และตัดการเชื่อมต่อ Socket ภายใน **< 1.0 วินาที** (NFR-S05)
-     - สร้าง `RevocationBroadcastToken` ที่ลงนามด้วย ECDSA P-256 Private Key ของตนเอง และกระจายข้อความ `cluster.revocation` ไปยังทุก Peer ในวง LAN
-  3. โหนดในคลัสเตอร์ที่ได้รับข้อความจะตรวจสอบลายเซ็นดิจิทัล และดำเนินการเพิกถอนเครื่องเป้าหมายออกจาก Trusted Store ของตนเองทันที พร้อมตัดการเชื่อมต่อภายใน **< 2.0 วินาที** ทั่วทั้งเครือข่าย LAN
+     - สร้าง `RevocationBroadcastToken` ที่ลงนามด้วย ECDSA P-256 Private Key ของตนเอง และบันทึกลง `revoked_tombstones.json` ถาวร
+     - กระจายข้อความ `cluster.revocation` ไปยังทุก Peer ที่ออนไลน์ในวง LAN
+  3. *มาตรการป้องกันการเพิกถอนโดยเครื่องที่ถูกขโมย (No Self-Revocation by Proxy):*
+     - โหนดในคลัสเตอร์ที่ได้รับข้อความจะตรวจสอบลายเซ็นดิจิทัล และดำเนินการเพิกถอนเครื่องเป้าหมายออกจาก Trusted Store ของตนเองทันที พร้อมตัดการเชื่อมต่อภายใน **< 2.0 วินาที** ทั่วทั้งเครือข่าย LAN
+     - **โหนดปลายทางจะไม่ยอมรับคำสั่งเพิกถอนตนเองที่ส่งมาจากโหนดอื่นเด็ดขาด** (หาก `revoked_id == my_id` จะไม่ประมวลผลคำสั่ง) เพื่อป้องกันไม่ให้เครื่องที่ถูกขโมยชิงส่งคำสั่งทำลายโหนดจริงในระบบ
+     - แสดงการแจ้งเตือนระดับระบบ (Interactive System Notification) ให้ผู้ใช้ทราบบนหน้าจอทันทีเมื่อมีอุปกรณ์ในคลัสเตอร์ถูกเพิกถอน
+  4. *การซิงก์สถานะกับอุปกรณ์ที่ออฟไลน์ (Handshake Anti-Entropy):*
+     - ทุกโหนดแนบ `tombstones_hash` ไปในข้อความ `hello` / `hello.ack`
+     - หากตรวจพบว่า Hash ไม่ตรงกัน ให้ส่งข้อความ `revocation.sync` เพื่อแลกเปลี่ยน Tombstones ที่ขาดไปทันที ป้องกันเครื่องที่ถูกเพิกถอนกลับมาเชื่อมต่อกับโหนดที่เคยออฟไลน์
 * **Output:** อุปกรณ์ดังกล่าวถูกลบสถานะความเชื่อถือออกจากทุกอุปกรณ์ในคลัสเตอร์อย่างสมบูรณ์ และถูกปฏิเสธการเชื่อมต่อทุกรูปแบบในอนาคตด้วยรหัส `E_NOT_PAIRED`
 
 ---
@@ -508,7 +522,13 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 * **NFR-S01 (การเข้ารหัสข้อมูล):** การสื่อสารทุกช่องทาง (Control & Data Plane) ต้องใช้โปรโตคอล **TLS 1.3 ล้วน** (บังคับใช้ Cipher Suite สมัยใหม่ เช่น `TLS_AES_128_GCM_SHA256`) และปฏิเสธการลดระดับโปรโตคอล (Downgrade Attack) ทั้งหมด
 * **NFR-S02 (การจัดเก็บกุญแจความปลอดภัย):** Private Key ของอุปกรณ์ต้องถูกจัดเก็บบน Secure Storage ประจำ OS (Keychain, DPAPI, Keystore) และ **ต้องไม่ปรากฏเป็นไฟล์ข้อความธรรมดา (Plaintext) บนดิสก์เด็ดขาด**
 * **NFR-S03 (การป้องกันการเขียนไฟล์อันตราย):** ระบบต้องสามารถป้องกันการโจมตีประเภท Path Traversal, Directory Traversal (`../`), Null Byte Injection, และ Windows Reserved Filenames ได้ **100% จากชุดทดสอบการโจมตี 12 รูปแบบ**
-* **NFR-S04 (การกรองข้อมูลอ่อนไหว):** ระบบต้องกรองและระงับการส่งออกข้อมูลคลิปบอร์ดที่มี **Known OS Sensitive Marker ที่รู้จักได้ 100%** (ครอบคลุม `org.nspasteboard.ConcealedType`, `org.nspasteboard.TransientType`, `ExcludeClipboardContentFromMonitorProcessing`, และ `ClipDescription.EXTRA_IS_SENSITIVE`) จากการทดสอบคัดลอก 100 ครั้ง จาก Password Managers (1Password, Bitwarden, Apple Keychain)
+* **NFR-S04 (การกรองข้อมูลอ่อนไหว):** ระบบต้องกรองและระงับการส่งออกข้อมูลคลิปบอร์ดที่มี **Known OS Sensitive Marker ที่รู้จักได้ 100% ครบทั้ง 5 รูปแบบ** ประกอบด้วย:
+  1. macOS: `org.nspasteboard.ConcealedType`
+  2. macOS: `com.agilebits.onepassword` / `org.nspasteboard.TransientType`
+  3. Windows: `ExcludeClipboardContentFromMonitorProcessing`
+  4. Windows: `CanIncludeInClipboardHistory` (เมื่อมีค่าเป็น 0 / FALSE)
+  5. Android: `ClipDescription.EXTRA_IS_SENSITIVE` / `Clipboard.EXTRA_IS_SENSITIVE` / `application/x-vnd.android.secret`
+  จากการทดสอบคัดลอก 100 ครั้ง จาก Password Managers (1Password, Bitwarden, KeePass, Apple Keychain)
 * **NFR-S05 (เวลาในการบังคับใช้การเพิกถอน):** เมื่อกดเพิกถอนอุปกรณ์ ระบบต้องทำการตัดการเชื่อมต่อและเพิกถอนสิทธิ์บนเครื่องที่สั่ง **ภายในเวลา < 1.0 วินาที** และโหนดที่ออนไลน์ทั้งหมดในคลัสเตอร์ LAN ต้องดำเนินการเพิกถอนเสร็จสิ้น **ภายในเวลา < 2.0 วินาที**
 
 ### 3.3.5 ด้านความง่ายในการใช้งานและการเข้าถึง (Usability Requirements)
@@ -538,7 +558,7 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 
 ### 3.4.4 ส่วนต่อประสานด้านการสื่อสาร (Communication Interfaces)
 * **CI-01 (mDNS/DNS-SD):** สื่อสารผ่านโปรโตคอล UDP พอร์ต 5353 มาตรฐาน RFC 6762 / 6763 สำหรับค้นหาโหนดในวง LAN
-* **CI-02 (Control Plane WebSocket):** สื่อสารผ่าน WebSocket over TLS 1.3 บนช่วงพอร์ต TCP 53317–53417 สำหรับส่งข้อมูลการควบคุมและคลิปบอร์ด
+* **CI-02 (Control Plane WebSocket):** สื่อสารผ่าน WebSocket over TLS 1.3 บนช่วงพอร์ต TCP 53317–53417 สำหรับส่งข้อมูลการควบคุมและคลิปบอร์ด พร้อมการเจรจาเวอร์ชันโปรโตคอล (Negotiate $\min \ge \max$ หรือปิดด้วย Close Code 4003 `E_UNSUPPORTED_VERSION`)
 * **CI-03 (Data Plane HTTP):** สื่อสารผ่าน HTTP/1.1 Chunked Transfer over TLS 1.3 บนช่วงพอร์ต TCP เดียวกันสำหรับสตรีมไฟล์ขนาดใหญ่
 
 ---
@@ -546,10 +566,10 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ## 3.5 สภาพแวดล้อมการทำงานของระบบ (System Environment)
 
 ### 3.5.1 สภาพแวดล้อมฝั่งผู้ใช้งาน (Target Execution Environment)
-* **macOS:** macOS 12.0 (Monterey) ขึ้นไป | รองรับสถาปัตยกรรม Apple Silicon (M1/M2/M3) และ Intel x86_64 | RAM ขั้นต่ำ 4 GB | เนื้อที่ว่าง 150 MB
-* **Windows:** Windows 10 (Build 19041) หรือ Windows 11 | รองรับสถาปัตยกรรม x64 และ ARM64 | RAM ขั้นต่ำ 4 GB | เนื้อที่ว่าง 150 MB
-* **Android:** Android 10 (API Level 29) ขึ้นไป | สถาปัตยกรรม ARM64-v8a | RAM ขั้นต่ำ 3 GB | เนื้อที่ว่าง 80 MB
-* **iOS:** iOS 15.0 ขึ้นไป | อุปกรณ์ iPhone และ iPad (สถาปัตยกรรม ARM64) | เนื้อที่ว่าง 80 MB
+* **macOS:** macOS 12.0 (Monterey) ขึ้นไป จนถึง macOS 15 (Sequoia) | รองรับสถาปัตยกรรม Apple Silicon (M1/M2/M3/M4) และ Intel x86_64 | RAM ขั้นต่ำ 4 GB | เนื้อที่ว่าง 150 MB
+* **Windows:** Windows 10 (Build 19041) หรือ Windows 11 (รวม 23H2/24H2) | รองรับสถาปัตยกรรม x64 และ ARM64 | RAM ขั้นต่ำ 4 GB | เนื้อที่ว่าง 150 MB
+* **Android:** Android 10 (API Level 29) ขึ้นไป จนถึง Android 15 | สถาปัตยกรรม ARM64-v8a | RAM ขั้นต่ำ 3 GB | เนื้อที่ว่าง 80 MB
+* **iOS:** iOS 15.0 ขึ้นไป จนถึง iOS 18 | อุปกรณ์ iPhone และ iPad (สถาปัตยกรรม ARM64) | เนื้อที่ว่าง 80 MB
 
 ### 3.5.2 สภาพแวดล้อมด้านเครือข่าย (Network Environment)
 * ทำงานบนโครงข่ายเครือข่ายท้องถิ่น (Local Area Network - LAN / Wi-Fi เดียวกัน) วง Subnet เดียวกัน

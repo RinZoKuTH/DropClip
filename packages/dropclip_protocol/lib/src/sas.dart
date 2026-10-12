@@ -7,7 +7,7 @@ class SasCalculator {
   SasCalculator._();
 
   /// Computes 6-digit SAS string given two certificate fingerprints and single raw nonce bytes.
-  /// Maintained for test vector conformance §18.1 & §18.2.
+  /// Maintained for test vector conformance §18.1.
   /// [fpA] and [fpB] are SHA-256 hex strings (64 lowercase characters).
   /// [nonceBytes] is the 16-byte pairing nonce.
   static String calculateSas(String fpA, String fpB, Uint8List nonceBytes) {
@@ -46,7 +46,7 @@ class SasCalculator {
     return sasDigits;
   }
 
-  /// Computes 6-digit SAS string with dual nonces according to PROTO-DC-V2.0 §5.5 (ADR-009).
+  /// Computes 6-digit SAS string with dual nonces in QR Mode according to PROTO-DC-V2.0 §5.5.1.
   /// [nonceA] is the 16-byte CSPRNG Host nonce.
   /// [nonceB] is the 16-byte CSPRNG Client nonce revealed after commitment verification.
   static String calculateSasDual(
@@ -93,6 +93,61 @@ class SasCalculator {
     return (unsigned32 % 1000000).toString().padLeft(6, '0');
   }
 
+  /// Computes 6-digit SAS string in PIN mode according to PROTO-DC-V2.0 §5.5.2 & §18.2.
+  /// Neither PIN nor any hash derived from PIN is ever sent over the network.
+  /// Instead, [pin] is used as an out-of-band shared secret salt.
+  static String calculateSasPinMode(
+    String fpA,
+    String fpB,
+    Uint8List nonceA,
+    Uint8List nonceB,
+    String pin,
+  ) {
+    if (nonceA.length != 16 || nonceB.length != 16) {
+      throw ArgumentError('Both nonces must be exactly 16 bytes');
+    }
+    final normalizedA = fpA.toLowerCase().trim();
+    final normalizedB = fpB.toLowerCase().trim();
+
+    final sorted = [normalizedA, normalizedB]..sort();
+    final fpLo = sorted[0];
+    final fpHi = sorted[1];
+
+    final fpLoBytes = utf8.encode(fpLo);
+    final fpHiBytes = utf8.encode(fpHi);
+    final pinBytes = utf8.encode('dropclip-pin-salt-v1:${pin.trim()}');
+
+    // sas_input = UTF8(fp_lo) || UTF8(fp_hi) || nonce_A || nonce_B || pin_salt
+    final input = Uint8List(
+      fpLoBytes.length +
+          fpHiBytes.length +
+          nonceA.length +
+          nonceB.length +
+          pinBytes.length,
+    );
+    var offset = 0;
+    input.setRange(offset, offset + fpLoBytes.length, fpLoBytes);
+    offset += fpLoBytes.length;
+    input.setRange(offset, offset + fpHiBytes.length, fpHiBytes);
+    offset += fpHiBytes.length;
+    input.setRange(offset, offset + nonceA.length, nonceA);
+    offset += nonceA.length;
+    input.setRange(offset, offset + nonceB.length, nonceB);
+    offset += nonceB.length;
+    input.setRange(offset, offset + pinBytes.length, pinBytes);
+
+    final digest = sha256.convert(input);
+    final digestBytes = digest.bytes;
+
+    final uint32Be = (digestBytes[0] << 24) |
+        (digestBytes[1] << 16) |
+        (digestBytes[2] << 8) |
+        digestBytes[3];
+
+    final unsigned32 = uint32Be & 0xFFFFFFFF;
+    return (unsigned32 % 1000000).toString().padLeft(6, '0');
+  }
+
   /// Computes cryptographic commitment for Client B according to PROTO-DC-V2.0 §5.2
   /// C_B = SHA-256("dropclip-commit-v1:" || nonce_B || fp_B)
   static String createCommitment(Uint8List nonceB, String fpB) {
@@ -123,7 +178,7 @@ class SasCalculator {
     return expected == commitment.toLowerCase().trim();
   }
 
-  /// Derives 16-byte pin_nonce from 6-digit PIN according to PROTO-DC-V2.0 §5.2
+  /// Derives 16-byte pin_nonce from 6-digit PIN (legacy helper).
   static Uint8List derivePinNonce(String pin) {
     final pinStr = 'dropclip-pin-v1:${pin.trim()}';
     final digest = sha256.convert(utf8.encode(pinStr));
