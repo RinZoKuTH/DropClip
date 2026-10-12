@@ -1,0 +1,17 @@
+name: dropclip_core
+description: Core networking, transport, cryptographic keystore, and discovery engine for DropClip
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  dropclip_protocol:
+    path: ../dropclip_protocol
+  crypto: ^3.0.3
+  meta: ^1.11.0
+
+dev_dependencies:
+  lints: ^3.0.0
+  test: ^1.24.9

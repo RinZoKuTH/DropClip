@@ -1,0 +1,57 @@
+# Files and directories created by Flutter/Dart
+.dart_tool/
+.packages
+build/
+.pub-cache/
+.pub/
+*.dill
+*.vm
+
+# Melos
+.melos/
+melos_*.log
+
+# Sensitive Files & Cryptographic Secrets (Strict: DropClip NFR-S02)
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+*.der
+*id_rsa*
+*.part
+*.part.json
+.dropclip-partial/
+trusted_devices.json.enc
+identity.json
+state.json
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE & Editors
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# Test & Coverage
+coverage/
+*.lcov
+*.gcov
+test-results/
+
+# Log Files
+*.log
+logs/
+*.stackdump

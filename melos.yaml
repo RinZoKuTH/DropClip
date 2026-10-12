@@ -1,0 +1,36 @@
+name: dropclip
+
+packages:
+  - packages/**
+  - apps/**
+  - tools/**
+
+command:
+  version:
+    linkToCommits: true
+    workspaceChangelog: true
+
+scripts:
+  analyze:
+    run: melos exec -- dart analyze --fatal-infos
+    description: Run `dart analyze` across all packages.
+
+  format:
+    run: melos exec -- dart format --output=none --set-exit-if-changed .
+    description: Check formatting across all packages.
+
+  format:fix:
+    run: melos exec -- dart format .
+    description: Fix formatting across all packages.
+
+  test:
+    run: melos exec --dir-exists="test" -- dart test
+    description: Run unit and integration tests for all packages.
+
+  test:coverage:
+    run: melos exec --dir-exists="test" -- dart test --coverage=coverage
+    description: Run tests with coverage output.
+
+  build:runner:
+    run: melos exec --depends-on="build_runner" -- dart run build_runner build --delete-conflicting-outputs
+    description: Run code generation with build_runner.

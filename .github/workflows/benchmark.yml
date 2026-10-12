@@ -1,0 +1,37 @@
+name: Nightly Performance Benchmark & Soak Simulation
+
+on:
+  schedule:
+    - cron: '0 19 * * *' # Every night at 02:00 AM ICT (19:00 UTC)
+  workflow_dispatch:
+
+jobs:
+  nightly-benchmark:
+    name: Run Benchmark Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Dart SDK
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install Melos
+        run: dart pub global activate melos
+
+      - name: Bootstrap Workspace
+        run: melos bootstrap
+
+      - name: Run Protocol Fuzzer
+        run: |
+          if [ -d "tools/protocol_fuzzer" ]; then
+            cd tools/protocol_fuzzer && dart test || true
+          fi
+
+      - name: Run Benchmark Tests
+        run: |
+          if [ -d "tools/bench" ]; then
+            cd tools/bench && dart test || true
+          fi

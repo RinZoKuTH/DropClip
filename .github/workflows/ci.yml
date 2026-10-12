@@ -1,0 +1,60 @@
+name: DropClip Monorepo CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code-quality:
+    name: Code Quality & Analysis (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Dart SDK
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install Melos
+        run: dart pub global activate melos
+
+      - name: Bootstrap Workspace
+        run: melos bootstrap
+
+      - name: Check Code Formatting
+        run: melos run format
+
+      - name: Analyze Code Quality
+        run: melos run analyze
+
+      - name: Run Package Tests
+        run: melos run test
+
+  security-audit:
+    name: Security & Secret Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Scan for Plaintext Private Keys & Secrets (NFR-S02)
+        run: |
+          echo "Scanning codebase for exposed private keys..."
+          if grep -rnE "BEGIN (RSA |EC |OPENSSH |ED25519 )?PRIVATE KEY" packages/ apps/ native/; then
+            echo "ERROR: Plaintext private key found in repository!"
+            exit 1
+          fi
+          echo "No plaintext private keys found."

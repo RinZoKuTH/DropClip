@@ -1,0 +1,23 @@
+name: dropclip_desktop
+description: DropClip Desktop Application Target (macOS & Windows)
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  dropclip_protocol:
+    path: ../../packages/dropclip_protocol
+  dropclip_core:
+    path: ../../packages/dropclip_core
+  dropclip_clipboard:
+    path: ../../packages/dropclip_clipboard
+  dropclip_transfer:
+    path: ../../packages/dropclip_transfer
+  dropclip_ui:
+    path: ../../packages/dropclip_ui
+
+dev_dependencies:
+  lints: ^3.0.0
+  test: ^1.24.9
