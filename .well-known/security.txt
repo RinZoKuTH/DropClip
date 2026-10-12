@@ -4,3 +4,4 @@ Encryption: https://dropclip.net/pgp-key.asc
 Preferred-Languages: th, en
 Canonical: https://dropclip.net/.well-known/security.txt
 Policy: https://dropclip.net/security-policy
+

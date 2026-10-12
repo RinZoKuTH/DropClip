@@ -55,4 +55,5 @@ test-results/
 *.log
 logs/
 *.stackdump
+*.well-known/
 
