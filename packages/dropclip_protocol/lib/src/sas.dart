@@ -6,30 +6,32 @@ import 'package:crypto/crypto.dart';
 class SasCalculator {
   SasCalculator._();
 
-  /// Computes 6-digit SAS string given two certificate fingerprints and single raw nonce bytes.
-  /// Maintained for test vector conformance §18.1.
-  /// [fpA] and [fpB] are SHA-256 hex strings (64 lowercase characters).
-  /// [nonceBytes] is the 16-byte pairing nonce.
-  static String calculateSas(String fpA, String fpB, Uint8List nonceBytes) {
-    if (nonceBytes.length != 16) {
-      throw ArgumentError('Nonce must be exactly 16 bytes');
+  static final RegExp _hex64Regex = RegExp(r'^[0-9a-fA-F]{64}$');
+  static final RegExp _pin6Regex = RegExp(r'^\d{6}$');
+
+  static void _validateFingerprint(String fp, String paramName) {
+    if (!_hex64Regex.hasMatch(fp.trim())) {
+      throw ArgumentError(
+        'Fingerprint $paramName must be a 64-character hexadecimal string',
+      );
     }
-    final normalizedA = fpA.toLowerCase().trim();
-    final normalizedB = fpB.toLowerCase().trim();
+  }
 
-    // Ascending sort of fingerprints as lowercase hex strings
-    final sorted = [normalizedA, normalizedB]..sort();
-    final fpLo = sorted[0];
-    final fpHi = sorted[1];
+  static void _validatePin(String pin) {
+    if (!_pin6Regex.hasMatch(pin.trim())) {
+      throw ArgumentError('PIN must be exactly 6 digits');
+    }
+  }
 
-    // sas_input = UTF8(fp_lo) || UTF8(fp_hi) || nonce_bytes (64 + 64 + 16 = 144 bytes)
-    final fpLoBytes = utf8.encode(fpLo);
-    final fpHiBytes = utf8.encode(fpHi);
-
-    final input = Uint8List(fpLoBytes.length + fpHiBytes.length + nonceBytes.length);
-    input.setRange(0, fpLoBytes.length, fpLoBytes);
-    input.setRange(fpLoBytes.length, fpLoBytes.length + fpHiBytes.length, fpHiBytes);
-    input.setRange(fpLoBytes.length + fpHiBytes.length, input.length, nonceBytes);
+  /// Hashes concatenated byte chunks with SHA-256 and computes big-endian uint32 mod 1,000,000.
+  static String _sas(List<List<int>> parts) {
+    final totalLength = parts.fold<int>(0, (sum, part) => sum + part.length);
+    final input = Uint8List(totalLength);
+    var offset = 0;
+    for (final part in parts) {
+      input.setRange(offset, offset + part.length, part);
+      offset += part.length;
+    }
 
     final digest = sha256.convert(input);
     final digestBytes = digest.bytes;
@@ -42,8 +44,31 @@ class SasCalculator {
 
     // mod 1,000,000 padded to 6 digits
     final unsigned32 = uint32Be & 0xFFFFFFFF;
-    final sasDigits = (unsigned32 % 1000000).toString().padLeft(6, '0');
-    return sasDigits;
+    return (unsigned32 % 1000000).toString().padLeft(6, '0');
+  }
+
+  /// Computes 6-digit SAS string given two certificate fingerprints and single raw nonce bytes.
+  /// Maintained for test vector conformance §18.1.
+  /// [fpA] and [fpB] are SHA-256 hex strings (64 lowercase characters).
+  /// [nonceBytes] is the 16-byte pairing nonce.
+  @Deprecated('Use calculateSasDual for QR mode or calculateSasPinMode for PIN mode')
+  static String calculateSas(String fpA, String fpB, Uint8List nonceBytes) {
+    if (nonceBytes.length != 16) {
+      throw ArgumentError('Nonce must be exactly 16 bytes');
+    }
+    _validateFingerprint(fpA, 'fpA');
+    _validateFingerprint(fpB, 'fpB');
+
+    final normalizedA = fpA.toLowerCase().trim();
+    final normalizedB = fpB.toLowerCase().trim();
+
+    // Ascending sort of fingerprints as lowercase hex strings
+    final sorted = [normalizedA, normalizedB]..sort();
+    return _sas([
+      utf8.encode(sorted[0]),
+      utf8.encode(sorted[1]),
+      nonceBytes,
+    ]);
   }
 
   /// Computes 6-digit SAS string with dual nonces in QR Mode according to PROTO-DC-V2.0 §5.5.1.
@@ -58,39 +83,19 @@ class SasCalculator {
     if (nonceA.length != 16 || nonceB.length != 16) {
       throw ArgumentError('Both nonces must be exactly 16 bytes');
     }
+    _validateFingerprint(fpA, 'fpA');
+    _validateFingerprint(fpB, 'fpB');
+
     final normalizedA = fpA.toLowerCase().trim();
     final normalizedB = fpB.toLowerCase().trim();
 
     final sorted = [normalizedA, normalizedB]..sort();
-    final fpLo = sorted[0];
-    final fpHi = sorted[1];
-
-    final fpLoBytes = utf8.encode(fpLo);
-    final fpHiBytes = utf8.encode(fpHi);
-
-    // sas_input = UTF8(fp_lo) || UTF8(fp_hi) || nonce_A || nonce_B (64 + 64 + 16 + 16 = 160 bytes)
-    final input = Uint8List(
-      fpLoBytes.length + fpHiBytes.length + nonceA.length + nonceB.length,
-    );
-    var offset = 0;
-    input.setRange(offset, offset + fpLoBytes.length, fpLoBytes);
-    offset += fpLoBytes.length;
-    input.setRange(offset, offset + fpHiBytes.length, fpHiBytes);
-    offset += fpHiBytes.length;
-    input.setRange(offset, offset + nonceA.length, nonceA);
-    offset += nonceA.length;
-    input.setRange(offset, offset + nonceB.length, nonceB);
-
-    final digest = sha256.convert(input);
-    final digestBytes = digest.bytes;
-
-    final uint32Be = (digestBytes[0] << 24) |
-        (digestBytes[1] << 16) |
-        (digestBytes[2] << 8) |
-        digestBytes[3];
-
-    final unsigned32 = uint32Be & 0xFFFFFFFF;
-    return (unsigned32 % 1000000).toString().padLeft(6, '0');
+    return _sas([
+      utf8.encode(sorted[0]),
+      utf8.encode(sorted[1]),
+      nonceA,
+      nonceB,
+    ]);
   }
 
   /// Computes 6-digit SAS string in PIN mode according to PROTO-DC-V2.0 §5.5.2 & §18.2.
@@ -106,46 +111,23 @@ class SasCalculator {
     if (nonceA.length != 16 || nonceB.length != 16) {
       throw ArgumentError('Both nonces must be exactly 16 bytes');
     }
+    _validateFingerprint(fpA, 'fpA');
+    _validateFingerprint(fpB, 'fpB');
+    _validatePin(pin);
+
     final normalizedA = fpA.toLowerCase().trim();
     final normalizedB = fpB.toLowerCase().trim();
 
     final sorted = [normalizedA, normalizedB]..sort();
-    final fpLo = sorted[0];
-    final fpHi = sorted[1];
-
-    final fpLoBytes = utf8.encode(fpLo);
-    final fpHiBytes = utf8.encode(fpHi);
     final pinBytes = utf8.encode('dropclip-pin-salt-v1:${pin.trim()}');
 
-    // sas_input = UTF8(fp_lo) || UTF8(fp_hi) || nonce_A || nonce_B || pin_salt
-    final input = Uint8List(
-      fpLoBytes.length +
-          fpHiBytes.length +
-          nonceA.length +
-          nonceB.length +
-          pinBytes.length,
-    );
-    var offset = 0;
-    input.setRange(offset, offset + fpLoBytes.length, fpLoBytes);
-    offset += fpLoBytes.length;
-    input.setRange(offset, offset + fpHiBytes.length, fpHiBytes);
-    offset += fpHiBytes.length;
-    input.setRange(offset, offset + nonceA.length, nonceA);
-    offset += nonceA.length;
-    input.setRange(offset, offset + nonceB.length, nonceB);
-    offset += nonceB.length;
-    input.setRange(offset, offset + pinBytes.length, pinBytes);
-
-    final digest = sha256.convert(input);
-    final digestBytes = digest.bytes;
-
-    final uint32Be = (digestBytes[0] << 24) |
-        (digestBytes[1] << 16) |
-        (digestBytes[2] << 8) |
-        digestBytes[3];
-
-    final unsigned32 = uint32Be & 0xFFFFFFFF;
-    return (unsigned32 % 1000000).toString().padLeft(6, '0');
+    return _sas([
+      utf8.encode(sorted[0]),
+      utf8.encode(sorted[1]),
+      nonceA,
+      nonceB,
+      pinBytes,
+    ]);
   }
 
   /// Computes cryptographic commitment for Client B according to PROTO-DC-V2.0 §5.2
@@ -154,6 +136,8 @@ class SasCalculator {
     if (nonceB.length != 16) {
       throw ArgumentError('Nonce must be exactly 16 bytes');
     }
+    _validateFingerprint(fpB, 'fpB');
+
     final prefix = utf8.encode('dropclip-commit-v1:');
     final fpBytes = utf8.encode(fpB.toLowerCase().trim());
     final input = Uint8List(prefix.length + nonceB.length + fpBytes.length);
@@ -174,14 +158,13 @@ class SasCalculator {
     Uint8List nonceB,
     String fpB,
   ) {
+    if (nonceB.length != 16) {
+      return false;
+    }
+    if (!_hex64Regex.hasMatch(fpB.trim())) {
+      return false;
+    }
     final expected = createCommitment(nonceB, fpB);
     return expected == commitment.toLowerCase().trim();
-  }
-
-  /// Derives 16-byte pin_nonce from 6-digit PIN (legacy helper).
-  static Uint8List derivePinNonce(String pin) {
-    final pinStr = 'dropclip-pin-v1:${pin.trim()}';
-    final digest = sha256.convert(utf8.encode(pinStr));
-    return Uint8List.fromList(digest.bytes.sublist(0, 16));
   }
 }

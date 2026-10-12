@@ -125,7 +125,7 @@
 
 ### 6.2 Clipboard Sync Engine
 - Control Plane: Persistent WebSocket over TLS 1.3
-- **Lamport Logical Clock + Last-Writer-Wins** แทนการเทียบ hash อย่างเดียว
+- **Hybrid Logical Clock (HLC) + Last-Writer-Wins** แทนการเทียบ hash อย่างเดียว
 - **Sensitive-Content Filter:** `org.nspasteboard.ConcealedType` (macOS), `EXTRA_IS_SENSITIVE` (Android) → ไม่ซิงก์
 - **Clipboard TTL:** ลบอัตโนมัติหลัง N วินาที เหมาะกับ OTP
 
@@ -140,7 +140,7 @@
 
 | หัวข้อ | v1.0 (เดิม) | **v2.0** |
 |---|---|---|
-| Identity | Shared Master Secret | **Per-device Ed25519 keypair** |
+| Identity | Shared Master Secret | **Per-device ECDSA P-256 keypair** |
 | Channel | AES-256-GCM เขียนเอง | **TLS 1.3 + Certificate Pinning** |
 | Pairing | แลก secret ดิบ | **QR + public key fingerprint + SAS 6 หลัก** |
 | การเพิกถอน | ทำไม่ได้ | **ถอดออกจาก Trusted List ได้ทันที** |
@@ -315,7 +315,7 @@ dropclip/
 
 | ปัญหาของ Pure Lamport | การแก้ปัญหาด้วย HLC |
 |---|---|
-| เมื่ออุปกรณ์ออฟไลน์ไปนานแล้วคัดลอกข้อมูลใหม่ ค่า Lamport clock จะต่ำ เมื่อเชื่อมต่อกลับมา ข้อมูลใหม่จะถูก LWW ทิ้งเพราะแพ้ clock เก่าของเครื่องอื่น | HLC ผสานเวลาจริง (Physical wall clock `l`) และตัวนับเชิงตรรกะ (`c`) ทำให้ข้อมูลที่คัดลอกใหม่บนเครื่องออฟไลน์มีค่าเวลาจริงสูงกว่าข้อมูลเก่าเสมอ และยังป้องกันปัญหานาฬิกาเครื่องคลาดเคลื่อน (Clock Drift) ได้อย่างสมบูรณ์ |
+| เมื่ออุปกรณ์ออฟไลน์ไปนานแล้วคัดลอกข้อมูลใหม่ ค่า Lamport clock จะต่ำ เมื่อเชื่อมต่อกลับมา ข้อมูลใหม่จะถูก LWW ทิ้งเพราะแพ้ clock เก่าของเครื่องอื่น | HLC ผสานเวลาจริง (Physical wall clock `l`) และตัวนับเชิงตรรกะ (`c`) ช่วยให้ข้อมูลที่คัดลอกใหม่บนเครื่องออฟไลน์มีค่าเวลาจริงสูงกว่าข้อมูลเก่าได้ถูกต้องในกรณีส่วนใหญ่ โดยจำกัดกรอบความคลาดเคลื่อนด้วย `MAX_CLOCK_DRIFT` (60 วินาที) หากโหนดใดมีเวลาล้ำหน้าเกินกว่านี้จะถูกปฏิเสธเพื่อป้องกันการยึดสิทธิ์ LWW โดยมิชอบ (แลกกับ trade-off กรณีเครื่องออฟไลน์ที่นาฬิกาเดินช้ากว่าคลัสเตอร์มาก) |
 
 ### ADR-009 — ป้องกัน SAS MITM ด้วย Commit-then-Reveal Scheme
 

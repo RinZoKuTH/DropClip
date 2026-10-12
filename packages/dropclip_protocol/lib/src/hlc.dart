@@ -1,10 +1,40 @@
 import 'package:meta/meta.dart';
+import 'constants.dart';
+
+/// Thrown when a remote HLC physical timestamp exceeds allowable clock drift.
+class ClockDriftException implements Exception {
+  final int localPhysicalTimeMs;
+  final int remotePhysicalTimeMs;
+  final int maxDriftMs;
+
+  const ClockDriftException({
+    required this.localPhysicalTimeMs,
+    required this.remotePhysicalTimeMs,
+    required this.maxDriftMs,
+  });
+
+  int get driftMs => remotePhysicalTimeMs - localPhysicalTimeMs;
+
+  @override
+  String toString() =>
+      'ClockDriftException: Remote timestamp ($remotePhysicalTimeMs ms) drifts by '
+      '$driftMs ms ahead of local clock ($localPhysicalTimeMs ms), exceeding maximum '
+      'allowable drift of $maxDriftMs ms.';
+}
 
 /// Hybrid Logical Clock (HLC) implementation according to PROTO-DC-V2.0 §10
 /// and ADR-008.
 ///
 /// HLC couples physical time `l` (milliseconds since epoch) with a logical
 /// counter `c` and deterministic node tie-breaker `d`.
+///
+/// **Clock Drift Bounds & Trade-offs:**
+/// Forward clock drift is bounded by [ProtocolConstants.maxClockDriftMs] (60s)
+/// during [merge]. If a remote peer presents a physical time `l` more than 60s
+/// ahead of the local wall clock, a [ClockDriftException] is thrown to prevent
+/// future-timestamp hijacking of Last-Writer-Wins (LWW).
+/// In exchange, a node that remains offline with a severely lagging physical clock
+/// will lose LWW resolution against fresher cluster updates upon reconnect.
 @immutable
 class Hlc implements Comparable<Hlc> {
   /// Physical component: maximum wall clock timestamp observed so far (ms).
@@ -13,10 +43,17 @@ class Hlc implements Comparable<Hlc> {
   /// Logical counter for events occurring within the same physical millisecond.
   final int c;
 
-  /// Node / Device identifier (UUID string) for deterministic tie-breaking.
+  /// Node / Device identifier (UUID string, normalized to lowercase) for deterministic tie-breaking.
   final String d;
 
-  const Hlc({
+  Hlc({
+    required this.l,
+    required this.c,
+    required String d,
+  }) : d = d.toLowerCase().trim();
+
+  /// Raw constructor without string normalization.
+  const Hlc.raw({
     required this.l,
     required this.c,
     required this.d,
@@ -26,6 +63,32 @@ class Hlc implements Comparable<Hlc> {
   factory Hlc.now(String deviceId, [int? physicalTimeMs]) {
     final now = physicalTimeMs ?? DateTime.now().millisecondsSinceEpoch;
     return Hlc(l: now, c: 0, d: deviceId);
+  }
+
+  /// Parses an HLC from wire string representation `"<l>:<c>:<d>"`
+  /// (used in `X-DropClip-HLC` HTTP header and logging).
+  factory Hlc.parse(String s) {
+    final parts = s.split(':');
+    if (parts.length < 3) {
+      throw FormatException('Invalid HLC string representation: "$s" (expected l:c:d)');
+    }
+    final l = int.tryParse(parts[0]);
+    final c = int.tryParse(parts[1]);
+    final d = parts.sublist(2).join(':').trim();
+    if (l == null || c == null || d.isEmpty) {
+      throw FormatException('Invalid HLC format: "$s"');
+    }
+    return Hlc(l: l, c: c, d: d);
+  }
+
+  /// Safely parses an HLC from wire string representation or returns null.
+  static Hlc? tryParse(String? s) {
+    if (s == null || s.trim().isEmpty) return null;
+    try {
+      return Hlc.parse(s);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Parses an HLC from JSON representation `{"l": int, "c": int, "d": string}`.
@@ -59,7 +122,23 @@ class Hlc implements Comparable<Hlc> {
   ///
   /// [remote] is the inbound event's HLC.
   /// [physicalTimeMs] is the current local wall clock time in milliseconds.
-  Hlc merge(Hlc remote, int physicalTimeMs) {
+  /// [maxDriftMs] is the maximum allowable forward clock drift threshold
+  /// (defaults to [ProtocolConstants.maxClockDriftMs] = 60,000 ms).
+  ///
+  /// Throws [ClockDriftException] if `remote.l - physicalTimeMs > maxDriftMs`.
+  Hlc merge(
+    Hlc remote,
+    int physicalTimeMs, {
+    int maxDriftMs = ProtocolConstants.maxClockDriftMs,
+  }) {
+    if (remote.l - physicalTimeMs > maxDriftMs) {
+      throw ClockDriftException(
+        localPhysicalTimeMs: physicalTimeMs,
+        remotePhysicalTimeMs: remote.l,
+        maxDriftMs: maxDriftMs,
+      );
+    }
+
     final lMax = [l, remote.l, physicalTimeMs].reduce((a, b) => a > b ? a : b);
 
     int cNext;
@@ -106,4 +185,5 @@ class Hlc implements Comparable<Hlc> {
   @override
   String toString() => '$l:$c:$d';
 }
+
 

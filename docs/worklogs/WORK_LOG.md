@@ -5,6 +5,60 @@
 
 ---
 
+## [2026-10-13] PCR-01: Protocol & Architectural Alignment (Peer Review Findings)
+
+| รายการ | รายละเอียด |
+|---|---|
+| **Scope** | Protocol Spec v2.1 (PCR-01), Dual Nonce SAS, HLC Drift & Parsing, Path Sanitizer Hardening, Playbook Alignment |
+| **Branch** | `main` |
+| **Engineers** | `LEAD` (เจ), `NET` (นนท์), `MOB` (เกื้อ), `QA` (ตามด) |
+| **AI Assistant** | Antigravity AI Pair Programmer |
+| **Status** | `COMPLETED & VERIFIED` |
+
+### 1. วัตถุประสงค์
+แก้ไขจุดขัดแย้งเชิงโครงสร้างและช่องว่างของข้อกำหนดตามรายงาน Peer Review:
+1. ความขัดแย้งของ Endpoint จับคู่ระหว่าง §9.2 กับ §5.4 (ขาด `/pair/finalize`, schema เก่าไม่มี `commitment_B`)
+2. Conformance Test Vector §18.1 ขัดกับสูตร Dual Nonce SAS §5.5.1
+3. ข้อความตกค้างของ Lamport Clock ใน HTTP Header §9.4, §9.5, §10.7 และ Playbook
+4. ค่า `MAX_CLOCK_DRIFT` (60 วินาที) ขาดหายไปจากตาราง §16 และ `constants.dart`
+5. การป้องกันการโจมตี Unicode Bidi Override และ Windows Device Name ที่ตกสำรวจใน `path_sanitizer.dart`
+6. การลบ `derivePinNonce()` ที่ขัดกับหลักการ Zero-PIN-on-Wire
+
+### 2. การตัดสินใจทางเทคนิคและการแก้ไข (Key Implementation Details)
+1. **Pairing Endpoints Realignment (§9.1, §9.2 & §5.4):**
+   - อัปเดต `POST /api/v1/pair` ให้รับ `commitment_B` และส่ง `nonce_A`
+   - เพิ่ม `POST /api/v1/pair/finalize` (Step 13) เพื่อรับผลการยืนยัน SAS (`match`/`mismatch`) จากผู้ใช้
+   - ระบุชัดเจนว่าห้ามส่ง PIN หรือ nonce ที่ derive จาก PIN บนเครือข่ายเด็ดขาด
+2. **Dual Nonce SAS Conformance & Zero-PIN Enforcement:**
+   - คำนวณและยืนยัน Test Vector §18.1 แบบ Dual Nonce 160 bytes: ได้ผลลัพธ์ `"337017"`
+   - ตรวจสอบ Test Vector §18.2 แบบ PIN mode: ได้ผลลัพธ์ `"639589"` ตรงตามสเปก 100%
+   - ใส่ `@Deprecated` ให้ `calculateSas` (legacy single-nonce) และนำ `calculateSasDual` เป็นแกนหลัก
+   - ลบ `derivePinNonce()` ออกจาก `sas.dart` และ `bench.dart` อย่างสมบูรณ์
+   - เพิ่ม Input Validation ตรวจ 64-character hex สำหรับ fingerprint, 6-digit สำหรับ PIN, และ 16-byte สำหรับ nonces
+3. **HLC Clock Drift Enforcement & Wire Formatting:**
+   - กำหนด `ClockDriftException` ใน `hlc.dart` ตรวจจับเมื่อ `remote.l - physicalTimeMs > 60000` ms ใน `merge()`
+   - Normalization ของ `d` (lowercase, trim) เพื่อความเที่ยงตรงของ LWW Tie-breaking
+   - เพิ่ม `Hlc.parse()` และ `Hlc.tryParse()` รองรับรูปแบบ header `X-DropClip-HLC: <l>:<c>:<d>`
+   - เพิ่ม `MAX_CLOCK_DRIFT` (60s) และ `MIN_SUPPORTED_VERSION` (1) ใน `constants.dart` และตาราง §16
+4. **Path Sanitizer Hardening:**
+   - บล็อก Unicode Bidirectional Override characters (`\u202A`–`\u202E`, `\u2066`–`\u2069`) ป้องกันเทคนิค RLO ซ่อนนามสกุลไฟล์
+   - เพิ่มรายการ DOS/Windows Device Aliases: `CONIN$`, `CONOUT$`, `COM¹`–`COM³`, `LPT¹`–`LPT³`
+   - เพิ่มฟังก์ชัน `validateOfferPaths(List<String> paths)` ตรวจจับ Case-insensitive Collisions ก่อนรับไฟล์
+5. **Specification & Playbook Cleanup:**
+   - แก้ไขเลขหัวข้อซ้ำ `7.4.11 error` เป็น `7.4.12 error`
+   - ปรับข้อความ S0.1 ใน §19 และ T1.2 ใน `02-TICKETS.md` เป็น ECDSA P-256 ตาม ADR-006
+   - ปรับปรุงข้อความ ADR-008 ใน Playbook บรรทัด 318 ให้ระบุเงื่อนไขการจำกัด Clock Drift ด้วย 60s Bound และ Trade-off ของเครื่องออฟไลน์อย่างถูกต้อง
+
+### 3. ผลการทดสอบ (Verification)
+- Automated Conformance Vector Runner (Python & Dart algorithms):
+  - Dual Nonce QR SAS (`160 bytes`): `337017` $\to$ PASS
+  - Legacy Single Nonce QR SAS (`144 bytes`): `579318` $\to$ PASS
+  - Salted PIN Mode SAS (`187 bytes`): `639589` $\to$ PASS
+  - HLC Merge & Clock Drift Rejection (>60s): PASS
+  - Path Sanitizer Attack Vectors (Bidi RLO, Windows Reserved Devices, Offer Collision): PASS 100%
+
+---
+
 ## [2026-10-12] Phase 0 Architectural Realignment & Blocker Resolutions
 
 | รายการ | รายละเอียด |

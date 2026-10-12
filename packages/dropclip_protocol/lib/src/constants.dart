@@ -3,8 +3,12 @@ class ProtocolConstants {
   ProtocolConstants._();
 
   static const int protocolVersion = 1;
+  static const int minSupportedProtocolVersion = 1;
   static const int portRangeStart = 53317;
   static const int portRangeEnd = 53417;
+
+  static const int maxClockDriftMs = 60000; // 60 seconds (PROTO-DC-V2.0 §10.3 & T-D03)
+  static const Duration maxClockDrift = Duration(seconds: 60);
 
   static const Duration mdnsTtl = Duration(seconds: 120);
   static const Duration discoveryQueryInterval = Duration(seconds: 10);

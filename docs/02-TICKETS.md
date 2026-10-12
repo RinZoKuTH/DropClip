@@ -60,7 +60,7 @@ main (Protected — Production Ready, Always Stable)
 |---|---|---|
 | **Feature** | `feat/<TICKET_ID>-<short-description>` | `feat/T1.1-mdns-discovery` |
 | **Bug Fix** | `fix/<TICKET_ID>-<bug-summary>` | `fix/T1.9-clipboard-echo-loop` |
-| **Technical Spike** | `spike/<SPIKE_ID>-<topic-slug>` | `spike/S0.1-tls-ed25519-pinning` |
+| **Technical Spike** | `spike/<SPIKE_ID>-<topic-slug>` | `spike/S0.1-mtls-p256-crossplatform` |
 | **Documentation** | `docs/<TICKET_ID>-<doc-slug>` | `docs/T0.2-protocol-vectors` |
 | **Release Candidate**| `release/v<M.m.p>` | `release/v1.0.0-phase1` |
 
@@ -353,7 +353,7 @@ main (Protected — Production Ready, Always Stable)
 - **Description:**  
   พัฒนาระบบสร้างและจัดเก็บอัตลักษณ์ประจำอุปกรณ์ (E-01) และฐานข้อมูลอุปกรณ์ที่เชื่อถือ (E-02) ตาม FR-02 และ NFR-S02
 - **Technical Detail:**
-  - สร้างคู่กุญแจ Ed25519 (หรือ ECDSA ตามผล Spike S0.1) และใบรับรอง X.509 Self-Signed อายุ 10 ปี
+  - สร้างคู่กุญแจ ECDSA P-256 (ตาม ADR-006) และใบรับรอง X.509 Self-Signed อายุ 10 ปี
   - จัดเก็บ Private Key ลงใน Secure Key Storage ของ OS: macOS Keychain / Windows DPAPI
   - บันทึกรายการ Trusted Devices ลงในไฟล์ที่เข้ารหัส AES-256-GCM (`trusted_devices.json.enc`)
 - **Acceptance Criteria:**

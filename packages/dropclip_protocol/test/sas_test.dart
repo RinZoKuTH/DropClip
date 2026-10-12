@@ -11,15 +11,19 @@ void main() {
     final nonceA = Uint8List.fromList(ascii.encode('0123456789abcdef'));
     final nonceB = Uint8List.fromList(ascii.encode('fedcba9876543210'));
 
-    test('QR mode SAS calculation matches test vector 18.1 ("579318")', () {
-      final sas = SasCalculator.calculateSas(fpA, fpB, nonceBytes);
-      expect(sas, equals('579318'));
+    test('Dual nonce QR mode SAS matches test vector 18.1 ("337017")', () {
+      final sas = SasCalculator.calculateSasDual(fpA, fpB, nonceA, nonceB);
+      expect(sas, equals('337017'));
+
+      // Symmetry check
+      final sasSwapped = SasCalculator.calculateSasDual(fpB, fpA, nonceA, nonceB);
+      expect(sasSwapped, equals(sas));
     });
 
-    test('SAS calculation is symmetric when swapping fpA and fpB', () {
-      final sasForward = SasCalculator.calculateSas(fpA, fpB, nonceBytes);
-      final sasReverse = SasCalculator.calculateSas(fpB, fpA, nonceBytes);
-      expect(sasReverse, equals(sasForward));
+    test('Legacy single-nonce QR mode SAS calculation matches ("579318")', () {
+      // ignore: deprecated_member_use_from_same_package
+      final sas = SasCalculator.calculateSas(fpA, fpB, nonceBytes);
+      expect(sas, equals('579318'));
     });
 
     test('OOB Salted PIN mode SAS matches test vector 18.2 ("639589")', () {
@@ -35,6 +39,45 @@ void main() {
       final sasCorrect = SasCalculator.calculateSasPinMode(fpA, fpB, nonceA, nonceB, '123456');
       final sasWrong = SasCalculator.calculateSasPinMode(fpA, fpB, nonceA, nonceB, '654321');
       expect(sasWrong, isNot(equals(sasCorrect)));
+    });
+  });
+
+  group('Input Validation Tests', () {
+    const validFp = '0000000000000000000000000000000000000000000000000000000000000000';
+    final validNonce = Uint8List.fromList(ascii.encode('0123456789abcdef'));
+    final shortNonce = Uint8List.fromList(ascii.encode('short'));
+
+    test('Throws ArgumentError for non-hex or non-64-char fingerprints', () {
+      expect(
+        () => SasCalculator.calculateSasDual('not-a-valid-fp', validFp, validNonce, validNonce),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(
+        () => SasCalculator.calculateSasDual(validFp, '012345', validNonce, validNonce),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('Throws ArgumentError for invalid PIN length or non-numeric PIN', () {
+      expect(
+        () => SasCalculator.calculateSasPinMode(validFp, validFp, validNonce, validNonce, '123'),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(
+        () => SasCalculator.calculateSasPinMode(validFp, validFp, validNonce, validNonce, 'abcdef'),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('Throws ArgumentError for non-16-byte nonces', () {
+      expect(
+        () => SasCalculator.calculateSasDual(validFp, validFp, shortNonce, validNonce),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(
+        () => SasCalculator.calculateSasDual(validFp, validFp, validNonce, shortNonce),
+        throwsA(isA<ArgumentError>()),
+      );
     });
   });
 
@@ -74,3 +117,4 @@ void main() {
     });
   });
 }
+

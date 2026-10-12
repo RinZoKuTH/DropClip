@@ -680,7 +680,7 @@ Reason ที่อนุญาต: `user_declined` | `insufficient_space` | `un
 ```
 `pong.seq` MUST เท่ากับ `ping.seq` ที่ตอบ
 
-#### 7.4.11 `error`
+#### 7.4.12 `error`
 
 ```json
 { "code": "E_UNSUPPORTED_VERSION", "message": "no mutually supported protocol version", "fatal": true, "ref_msg_id": null }
@@ -727,8 +727,9 @@ HTTP error response body MUST อยู่ในรูป:
 
 | Method | Path | Auth | คำอธิบาย | SRS |
 |---|---|---|---|---|
-| `POST` | `/api/v1/pair` | mTLS (unpinned) + RateLimit | เริ่มจับคู่ | FR-02 |
-| `POST` | `/api/v1/pair/confirm` | mTLS (unpinned) + RateLimit | ยืนยันผล SAS | FR-02 |
+| `POST` | `/api/v1/pair` | mTLS (unpinned) + RateLimit | เริ่มจับคู่และส่ง Commitment B (`commitment_B`) | FR-02 |
+| `POST` | `/api/v1/pair/confirm` | mTLS (unpinned) + RateLimit | เปิดเผย `nonce_B` เพื่อให้ Host ตรวจสอบ Commitment | FR-02 |
+| `POST` | `/api/v1/pair/finalize` | mTLS (unpinned) + RateLimit | ยืนยันผลการเปรียบเทียบ SAS จากผู้ใช้ (`match`/`mismatch`) | FR-02 |
 | `GET` | `/api/v1/info` | Pinned | ข้อมูลอุปกรณ์ (`hello` payload ไม่รวม `clip_head`) | — |
 | `GET` | `/api/v1/blob/{blob_id}` | Pinned | ดึง clipboard blob | FR-04 |
 | `POST` | `/api/v1/clipboard` | Pinned | One-shot clipboard push (Tier 2/3) | FR-03B, FR-03C |
@@ -741,33 +742,64 @@ HTTP error response body MUST อยู่ในรูป:
 
 ทุก response ของ endpoint ที่ Pinned MUST มี `Cache-Control: no-store`
 
-### 9.2 `POST /api/v1/pair` และ `/api/v1/pair/confirm`
+### 9.2 `POST /api/v1/pair`, `/api/v1/pair/confirm` และ `/api/v1/pair/finalize`
 
-**Request — `/pair`**
+**Request — `POST /api/v1/pair` (Step 5)**
 ```json
 {
   "v": 1,
-  "device_id": "b2c3d4e5-...",
+  "min_v": 1,
+  "device_id": "b2c3d4e5-6a7b-8c9d-0e1f-2a3b4c5d6e7f",
   "name": "Windows PC ที่ทำงาน",
   "os": "windows",
   "tier": 1,
   "fp": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
-  "nonce": "3q2+7wAAAAAAAAAAAAAAAA==",
+  "commitment_B": "c75a3af628ada8bd606909cf780ee15cec594a2e7c4b4d379bc54ceb1b955bc1",
   "method": "qr"
 }
 ```
+*(ห้ามส่ง PIN, ค่าแฮชของ PIN หรือ nonce_B ในขั้นตอนนี้เด็ดขาด เพื่อป้องกันการโจมตี Offline MITM)*
 
-**Response 200**
+**Response 200 — `/pair` (Step 7)**
 ```json
-{ "pair_id": "0b7e…", "device_id": "a1b2c3d4-...", "name": "MacBook Pro ของเจ", "os": "macos", "tier": 1, "fp": "9f86d081..." }
+{
+  "pair_id": "0b7e21a8-8e6d-4c3a-9f5b-1c2d3e4f5a6b",
+  "device_id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "MacBook Pro ของเจ",
+  "os": "macos",
+  "tier": 1,
+  "fp": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+  "nonce_A": "0123456789abcdef"
+}
 ```
 
-**Request — `/pair/confirm`**
+**Request — `POST /api/v1/pair/confirm` (Step 10)**
 ```json
-{ "pair_id": "0b7e…", "result": "match" }
+{
+  "pair_id": "0b7e21a8-8e6d-4c3a-9f5b-1c2d3e4f5a6b",
+  "nonce_B": "fedcba9876543210"
+}
 ```
 
-**Response** — `200 {"result":"paired"}` | `401 E_SAS_FAILED` | `410 E_NONCE_EXPIRED` (เกิน `PAIR_CONFIRM_TIMEOUT` = 120 s) | `429`
+**Response 200 — `/pair/confirm`**
+```json
+{
+  "pair_id": "0b7e21a8-8e6d-4c3a-9f5b-1c2d3e4f5a6b",
+  "status": "commitment_verified"
+}
+```
+*(ถ้า Commitment ไม่ตรง ตอบกลับ `401 E_PAIRING_INVALID`)*
+
+**Request — `POST /api/v1/pair/finalize` (Step 13)**
+```json
+{
+  "pair_id": "0b7e21a8-8e6d-4c3a-9f5b-1c2d3e4f5a6b",
+  "result": "match"
+}
+```
+
+**Response — `/pair/finalize` (Step 14)**
+`200 {"result": "paired"}` | `401 E_SAS_FAILED` | `410 E_NONCE_EXPIRED` (เกิน `PAIR_CONFIRM_TIMEOUT` = 120 s) | `429`
 
 ### 9.3 `GET /api/v1/blob/{blob_id}`
 
@@ -794,7 +826,7 @@ Content-Type: text/plain; charset=utf-8 | text/uri-list | image/png | image/jpeg
 Content-Length: 11
 X-DropClip-Msg-Id: 6f1c2c1e-6a43-4c4e-9d0c-0b6f3a5b1e27
 X-DropClip-Origin: <device_id ของผู้ส่ง>
-X-DropClip-Clock: 1430
+X-DropClip-HLC: 1757280000000:0:6f1c2c1e-6a43-4c4e-9d0c-0b6f3a5b1e27
 X-DropClip-Ts: 1757280000000
 X-DropClip-TTL: 60                      (optional)
 X-Content-SHA256: a591a6d4...
@@ -804,13 +836,13 @@ Hello World
 
 - Body คือ raw content (ไม่ base64) — ผู้ส่ง SHOULD stream จากไฟล์เพื่อคุม memory (NFR-R03B)
 - `Content-Length` MUST ≤ `CLIPBOARD_MAX_SIZE`
-- ผู้รับ MUST ประมวลผลเหมือน `clipboard.update` ขาเข้าทุกประการ (§10.3) รวมถึง dedup และ LWW
-- **Response 200:** `{ "applied": true, "clock": 1432 }` — ผู้ส่ง MUST merge `clock`
+- ผู้รับ MUST ประมวลผลเหมือน `clipboard.update` ขาเข้าทุกประการ (§10.3) รวมถึง dedup, Clock Drift check และ HLC LWW
+- **Response 200:** `{ "applied": true, "hlc": { "l": 1757280000001, "c": 0, "d": "<receiver_id>" } }` — ผู้ส่ง MUST merge `hlc`
 - ผู้รับที่เป็น Tier 1 SHOULD broadcast ต่อไปยัง peer อื่นของตัวเอง? **ไม่ — v1 ไม่มี relay** ผู้ส่ง (มือถือ) MUST ส่งตรงไปยังทุก desktop ที่เลือก/ออนไลน์
 
 ### 9.5 `GET /api/v1/clipboard/latest`
 
-- `200` + headers ชุดเดียวกับ §9.4 + raw body ของ `clip_head` ปัจจุบัน
+- `200` + headers ชุดเดียวกับ §9.4 (รวมถึง `X-DropClip-HLC: <l>:<c>:<d>`) + raw body ของ `clip_head` ปัจจุบัน
 - `204` เมื่อไม่มีรายการ, รายการหมด TTL แล้ว หรือผู้ใช้ปิดการซิงก์
 - Concealed content ไม่เคยถูกเก็บ จึงไม่มีทางถูกส่งผ่าน endpoint นี้
 
@@ -1041,10 +1073,10 @@ macOS ใช้ `changeCount` polling (200–2,000 ms) จึงเห็นก�
 ### 10.7 Catch-up (FR-10 step 4)
 
 - `_history` เก็บ 20 รายการล่าสุด (E-04) ใน memory เท่านั้น
-- หลัง `hello`/`hello.ack` แต่ละฝ่ายเทียบ `clip_head` ของตัวเองกับของอีกฝ่ายตามกฎ LWW (§10.3 step 5)
-- ฝ่ายที่ head ใหม่กว่า MUST ส่ง **envelope เดิมของ head 1 รายการ** (`msg_id`, `origin`, `clock` เดิม) — ไม่ส่งทั้ง 20
+- หลัง `hello`/`hello.ack` แต่ละฝ่ายเทียบ `clip_head` ของตัวเองกับของอีกฝ่ายตามกฎ LWW (§10.3 step 6)
+- ฝ่ายที่ head ใหม่กว่า MUST ส่ง **envelope เดิมของ head 1 รายการ** (`msg_id`, `origin`, `hlc` เดิม) — ไม่ส่งทั้ง 20
 - รายการที่ TTL หมดแล้ว MUST NOT ถูกส่ง
-- **Partition semantics:** event ที่เกิดระหว่าง network partition ถือเป็น concurrent — ทุกเครื่อง converge ไปค่าเดียวกันตาม `(clock, origin)` แต่ไม่รับประกันว่าเป็นค่าที่ "ล่าสุดตามนาฬิกาจริง"
+- **Partition semantics:** event ที่เกิดระหว่าง network partition ถือเป็น concurrent — ทุกเครื่อง converge ไปค่าเดียวกันตาม `(hlc, origin)` แต่ไม่รับประกันว่าเป็นค่าที่ "ล่าสุดตามนาฬิกาจริง"
 
 ### 10.8 TTL Clear (FR-05)
 
@@ -1365,6 +1397,8 @@ abstract interface class SecureKeyStore {
 | Constant | Value | เหตุผล / SRS |
 |---|---|---|
 | `PROTOCOL_VERSION` | 1 | — |
+| `MIN_SUPPORTED_VERSION` | 1 | §2.4 (Version Negotiation) |
+| `MAX_CLOCK_DRIFT` | 60 s (60,000 ms) | §10.3, T-D03 (ป้องกัน future clock drift ยึดสิทธิ์ LWW) |
 | `PORT_RANGE` | 53317–53417 | CI-02 |
 | `MDNS_TTL` | 120 s | FR-01 |
 | `DISCOVERY_QUERY_INTERVAL` | 10 s | ให้ตรวจ stale 30 s ได้แม่นยำ |
@@ -1459,19 +1493,22 @@ String sanitizePath(String input) {
 
 > ทุกแพลตฟอร์ม (Dart, Swift Share Extension, Kotlin) MUST ให้ผลตรงกับค่าเหล่านี้ทุกตัว
 
-### 18.1 SAS — QR mode
+### 18.1 SAS — QR mode (Dual Nonce Conformance §5.5.1)
 
 ```
-fp_A   = "0000000000000000000000000000000000000000000000000000000000000000"
-fp_B   = "1111111111111111111111111111111111111111111111111111111111111111"
-nonce  = base64 "MDEyMzQ1Njc4OWFiY2RlZg=="   (= ASCII "0123456789abcdef", 16 bytes)
+fp_A     = "0000000000000000000000000000000000000000000000000000000000000000"
+fp_B     = "1111111111111111111111111111111111111111111111111111111111111111"
+nonce_A  = base64 "MDEyMzQ1Njc4OWFiY2RlZg=="   (= ASCII "0123456789abcdef", 16 bytes)
+nonce_B  = base64 "ZmVkY2JhOTg3NjU0MzIxMA=="   (= ASCII "fedcba9876543210", 16 bytes)
 
-sas_input  = UTF8(fp_A) ‖ UTF8(fp_B) ‖ nonce_bytes          (144 bytes; fp_A < fp_B)
-sas_hash   = c75a3af628ada8bd606909cf780ee15cec594a2e7c4b4d379bc54ceb1b955bc1
-uint32_be  = 0xc75a3af6 = 3344579318
-sas        = 3344579318 mod 1000000 = "579318"
+sas_input  = UTF8(fp_A) ‖ UTF8(fp_B) ‖ nonce_A ‖ nonce_B   (160 bytes; fp_A < fp_B)
+sas_hash   = f7ea7239a0b48b63c1f80bf2d1f81fc56c486b0f1a558b258a986ce12d39d14c
+uint32_be  = 0xf7ea7239 = 4159337017
+sas        = 4159337017 mod 1000000 = "337017"
 ```
-และ MUST ได้ `"579318"` เมื่อสลับ `fp_A` ↔ `fp_B` (symmetry)
+และ MUST ได้ `"337017"` เมื่อสลับ `fp_A` ↔ `fp_B` (symmetry)
+
+*(หมายเหตุ: กรณี single-nonce legacy `calculateSas(fp_A, fp_B, nonce_A)` ขนาด 144 bytes ให้ผลลัพธ์คือ `"579318"` เพื่อการทดสอบความเข้ากันได้ย้อนหลัง)*
 
 ### 18.2 SAS — PIN mode (OOB Salted)
 
@@ -1490,22 +1527,28 @@ sas       = 866639589 mod 1000000 = "639589"
 ```
 และ MUST ได้ `"639589"` เมื่อสลับ `fp_A` ↔ `fp_B` (symmetry) โดยไม่มีค่าใดที่ derive มาจาก PIN ถูกส่งผ่านเครือข่ายเด็ดขาด
 
-### 18.3 Lamport Merge
+### 18.3 HLC Merge & Clock Drift Check (§10.3 & ADR-008)
 
-| ลำดับ | A clock | B clock | เหตุการณ์ |
-|---|---|---|---|
-| 0 | 0 | 0 | เริ่มต้น |
-| 1 | 1 | 0 | A copy → ส่ง clock=1 |
-| 2 | 1 | 2 | B รับ → max(0,1)+1 = 2 |
-| 3 | 1 | 3 | B copy → ส่ง clock=3 |
-| 4 | 4 | 3 | A รับ → max(1,3)+1 = 4 |
+| ลำดับ | Local Physical `ts` | A HLC `{l, c, d}` | B HLC `{l, c, d}` | เหตุการณ์ |
+|---|---|---|---|---|
+| 0 | 1757280000000 | `1757280000000:0:nodeA` | `1757280000000:0:nodeB` | เริ่มต้น |
+| 1 | 1757280000100 | `1757280000100:0:nodeA` | `1757280000000:0:nodeB` | A copy → `tick(1757280000100)` ส่ง `l=1757280000100, c=0` |
+| 2 | 1757280000050 | `1757280000100:0:nodeA` | `1757280000100:1:nodeB` | B รับที่ `ts=1757280000050` → `merge(A, 1757280000050)` ได้ `l=1757280000100, c=1` |
+| 3 | 1757280000100 | `1757280000100:0:nodeA` | `1757280000100:2:nodeB` | B copy ที่ `ts=1757280000100` (ms เดิม) → `tick(1757280000100)` ได้ `c=2` ส่งหา A |
+| 4 | 1757280000150 | `1757280000150:0:nodeA` | `1757280000100:2:nodeB` | A รับที่ `ts=1757280000150` → `merge(B, 1757280000150)` physical ก้าวหน้า → `c=0` |
+| 5 | 1757280000000 | — | `ClockDriftException` | Malicious peer ส่ง `l=1757280070000` (drift 70s > 60s) → ถูก reject ทันที |
 
-### 18.4 Tie-break
+### 18.4 HLC Tie-break & LWW
 
 ```
-Event X: {origin: "aaaaaaaa-0000-4000-8000-000000000000", clock: 10}
-Event Y: {origin: "bbbbbbbb-0000-4000-8000-000000000000", clock: 10}
-ทุกอุปกรณ์ MUST เลือก Y (เพราะ "bbbb…" > "aaaa…") ไม่ว่าจะได้รับในลำดับใด
+Event X: {origin: "aaaaaaaa-0000-4000-8000-000000000000", hlc: "1757280000000:5:aaaaaaaa-0000-4000-8000-000000000000"}
+Event Y: {origin: "bbbbbbbb-0000-4000-8000-000000000000", hlc: "1757280000000:5:bbbbbbbb-0000-4000-8000-000000000000"}
+
+เมื่อเปรียบเทียบ HLC Total Order:
+1. l เท่ากัน (1757280000000)
+2. c เท่ากัน (5)
+3. d tie-breaker: "bbbbbbbb-0000-4000-8000-000000000000" > "aaaaaaaa-0000-4000-8000-000000000000"
+ทุกอุปกรณ์ MUST เลือก Event Y เสมอ ไม่ว่าจะได้รับข้อมูลในลำดับใด
 ```
 
 ### 18.5 Size Routing Boundary
@@ -1554,7 +1597,7 @@ Path ที่ต้อง **ผ่าน**: `Photos/vacation.jpg`, `เอก�
 
 | ID | ประเด็น | Owner | Exit |
 |---|---|---|---|
-| S0.1 | TLS 1.3 + mTLS + Ed25519 self-signed + app-layer pinning บน Dart (macOS/Windows/Android) และ `URLSession` (iOS Share Extension) | LEAD | ADR-006; ถ้าต้องใช้ ECDSA P-256 → SRS Change Request |
+| S0.1 | TLS 1.3 + mTLS + ECDSA P-256 self-signed + app-layer pinning บน Dart (macOS/Windows/Android) และ `URLSession` (iOS Share Extension) | LEAD | ADR-006 (ผ่านการทดสอบข้ามแพลตฟอร์ม Dart ↔ iOS Network.framework ↔ Android Keystore) |
 | S0.2 | Android 10–14: Transient Activity อ่าน clipboard จาก QS Tile/Notification ได้จริงบน Pixel/Samsung/Xiaomi; iOS Share Extension เปิด TLS + client cert ภายใต้ 30 MB | MOB | ADR-007 |
 | OI-1 | iOS: AppIntent จาก Widget เขียน `UIPasteboard` ได้หรือไม่โดยไม่เปิดแอป (iOS 17+) | MOB | ผลของ S0.2 — ถ้าไม่ได้ Widget เปิดแอปแทน |
 | OI-2 | ขนาด `CLIPBOARD_MAX_SIZE` 32 MiB เหมาะกับ RAM มือถือหรือไม่ | NET | ผลวัดใน T1.29 |
@@ -1567,3 +1610,4 @@ Path ที่ต้อง **ผ่าน**: `Photos/vacation.jpg`, `เอก�
 |---|---|---|
 | 1.0 | 2026-09-08 | เวอร์ชันแรก — frozen สำหรับ Phase 1 |
 | 2.0 | 2026-10-12 | **Realign กับ SRS-DC-V1.2:** เพิ่ม traceability (§0.2) และ Capability Tiers (§2.2, `tier` ใน TXT/hello); เพิ่ม `port` ใน TXT ตาม FR-01; stale = ทำเครื่องหมายไม่ใช่ซ่อน (§3.5) + trust classification `identity_changed`; กำหนด Topology/Initiator rule/Close codes (§6); แยก WS frame limit 64 KiB ออกจาก inline threshold 32 KiB (แก้ความขัดแย้งเดิมเรื่อง base64 overhead); เพิ่ม PIN pairing mode + `/pair/confirm` + lockout `E_PAIR_LOCKED`/`E_PAIRING_INVALID` และเลิกส่ง SAS ใน response; นิยาม SAS input แบบ byte-exact พร้อม test vector ที่คำนวณแล้ว; เพิ่ม `POST /api/v1/clipboard` และ `GET /api/v1/clipboard/latest` สำหรับ Tier 2/3 (FR-03B/C); ลบ `clipboard.request_blob` (ดึง blob ผ่าน HTTP ตรง); เพิ่ม payload `clipboard.clear`, `file.cancel`, `file.complete`; Data plane เปลี่ยนเป็น `POST` + `X-Offset` ตาม FR-07 พร้อม resume แบบ chunk-aligned + `last_chunk_sha256` (FR-09); เพิ่ม `manifest` สำหรับโฟลเดอร์ใหญ่; persist Lamport clock; Image wire rules (§11); Platform Channel Contract (§14); Persistence Schemas E-01…E-06 (§15); Path sanitization ครบ 12 attack vectors (NFR-S03) |
+| 2.1 | 2026-10-13 | **Protocol & Architectural Alignment (PCR-01):** ปรับ §9.1 และ §9.2 ให้สอดคล้องกับ §5.4 Commit-then-Reveal ครบถ้วน (`/pair/finalize`, `commitment_B`); ปรับ §18.1 เป็น Dual Nonce SAS 160 bytes ("337017"); เปลี่ยน HTTP headers ใน §9.4, §9.5 และ Catch-up ใน §10.7 เป็น `X-DropClip-HLC`; อัปเดต test vectors §18.3 และ §18.4 เป็น HLC Merge & Tie-break; เพิ่ม `MAX_CLOCK_DRIFT` (60s) และ `MIN_SUPPORTED_VERSION` ใน §16; อัปเดต S0.1 ใน §19 เป็น ECDSA P-256 ตาม ADR-006; แก้ไขเลขหัวข้อ duplicate `7.4.12 error` |

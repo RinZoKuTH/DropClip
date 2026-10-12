@@ -94,6 +94,48 @@ void main() {
       expect(nodeBNewCopy.compareTo(nodeAClock), greaterThan(0),
           reason: 'B has higher physical time (1700 > 1500), so the fresh offline copy wins LWW!');
     });
+
+    test('Normalizes deviceId to lowercase and trimmed string', () {
+      final hlc = Hlc(l: 1000, c: 0, d: '  DEVICE-UPPER-CASE  ');
+      expect(hlc.d, equals('device-upper-case'));
+    });
+
+    test('Hlc.parse and tryParse parse wire string representations correctly', () {
+      final parsed = Hlc.parse('1757280000000:42:device-1234');
+      expect(parsed.l, equals(1757280000000));
+      expect(parsed.c, equals(42));
+      expect(parsed.d, equals('device-1234'));
+
+      expect(Hlc.tryParse('1757280000000:42:device-1234'), equals(parsed));
+      expect(Hlc.tryParse('invalid'), isNull);
+      expect(Hlc.tryParse(null), isNull);
+      expect(() => Hlc.parse('invalid'), throwsA(isA<FormatException>()));
+    });
+
+    test('merge succeeds when remote physical drift is within maxDriftMs (<= 60,000 ms)', () {
+      final local = Hlc(l: 100000, c: 0, d: nodeA);
+      final remote = Hlc(l: 150000, c: 0, d: nodeB); // 50,000 ms drift
+
+      final merged = local.merge(remote, 100000);
+      expect(merged.l, equals(150000));
+      expect(merged.c, equals(1));
+    });
+
+    test('merge throws ClockDriftException when remote clock drifts beyond maxDriftMs (> 60s)', () {
+      final local = Hlc(l: 100000, c: 0, d: nodeA);
+      final remoteMalicious = Hlc(l: 200000, c: 0, d: nodeB); // 100,000 ms drift > 60,000 ms limit
+
+      expect(
+        () => local.merge(remoteMalicious, 100000),
+        throwsA(
+          isA<ClockDriftException>()
+              .having((e) => e.driftMs, 'driftMs', equals(100000))
+              .having((e) => e.maxDriftMs, 'maxDriftMs', equals(60000))
+              .having((e) => e.localPhysicalTimeMs, 'localPhysicalTimeMs', equals(100000))
+              .having((e) => e.remotePhysicalTimeMs, 'remotePhysicalTimeMs', equals(200000)),
+        ),
+      );
+    });
   });
 }
 

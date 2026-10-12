@@ -16,17 +16,25 @@ class PathSanitizer {
   static final RegExp _driveLetterRegex = RegExp(r'^[A-Za-z]:');
   static final RegExp _controlCharRegex = RegExp(r'[\x00-\x1F\x7F]');
   static final RegExp _reservedCharRegex = RegExp(r'[<>:"|?*]');
-  static final RegExp _reservedDeviceNames =
-      RegExp(r'^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])$', caseSensitive: false);
+  static final RegExp _bidiOverrideRegex = RegExp(r'[\u202A-\u202E\u2066-\u2069]');
+  static final RegExp _reservedDeviceNames = RegExp(
+    r'^(CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[0-9\u00B9\u00B2\u00B3]|LPT[0-9\u00B9\u00B2\u00B3])$',
+    caseSensitive: false,
+  );
 
-  /// Validates and normalizes relative wire path using forward slashes.
-  /// Throws [InvalidPathException] if any vulnerability is detected.
+  /// Validates relative wire path format using forward slashes.
+  /// Note: Path strings are validated for compliance and security constraints;
+  /// Unicode NFC normalization should be applied by the platform filesystem adapter.
+  /// Throws [InvalidPathException] if any vulnerability or format violation is detected.
   static String sanitize(String input) {
     if (input.isEmpty) {
       throw InvalidPathException('Path cannot be empty');
     }
     if (utf8.encode(input).length > 4096) {
       throw InvalidPathException('Total path length exceeds 4096 bytes');
+    }
+    if (_bidiOverrideRegex.hasMatch(input)) {
+      throw InvalidPathException('Unicode bidirectional override characters are not permitted');
     }
     if (input.contains(r'\')) {
       throw InvalidPathException('Backslashes are not permitted in wire paths');
@@ -71,5 +79,24 @@ class PathSanitizer {
 
     return parts.join('/');
   }
+
+  /// Validates a collection of offer paths and detects case-insensitive collisions.
+  ///
+  /// Throws [InvalidPathException] if any individual path is invalid or if
+  /// two paths collide under case-insensitive comparison (critical for Windows/macOS).
+  static List<String> validateOfferPaths(List<String> paths) {
+    final sanitizedPaths = <String>[];
+    final lowercasedSet = <String>{};
+    for (final p in paths) {
+      final sanitized = sanitize(p);
+      final lower = sanitized.toLowerCase();
+      if (!lowercasedSet.add(lower)) {
+        throw InvalidPathException('Case-insensitive path collision detected: "$sanitized"');
+      }
+      sanitizedPaths.add(sanitized);
+    }
+    return sanitizedPaths;
+  }
 }
+
 

@@ -38,7 +38,7 @@ void main() {
           throwsA(isA<InvalidPathException>()));
     });
 
-    test('V8: Blocks Windows reserved device names (CON, NUL, COM1, etc.)', () {
+    test('V8: Blocks Windows reserved device names (CON, NUL, COM1, CONIN$, COM¹, etc.)', () {
       expect(() => PathSanitizer.sanitize('CON'),
           throwsA(isA<InvalidPathException>()));
       expect(() => PathSanitizer.sanitize('photos/con.txt'),
@@ -46,6 +46,14 @@ void main() {
       expect(() => PathSanitizer.sanitize('COM1.log'),
           throwsA(isA<InvalidPathException>()));
       expect(() => PathSanitizer.sanitize('data/LPT9'),
+          throwsA(isA<InvalidPathException>()));
+      expect(() => PathSanitizer.sanitize('CONIN$'),
+          throwsA(isA<InvalidPathException>()));
+      expect(() => PathSanitizer.sanitize('docs/CONOUT$.txt'),
+          throwsA(isA<InvalidPathException>()));
+      expect(() => PathSanitizer.sanitize('COM¹'),
+          throwsA(isA<InvalidPathException>()));
+      expect(() => PathSanitizer.sanitize('data/LPT².pdf'),
           throwsA(isA<InvalidPathException>()));
     });
 
@@ -80,7 +88,17 @@ void main() {
           throwsA(isA<InvalidPathException>()));
     });
 
-    test('Valid paths are accepted and normalized', () {
+    test('V13: Blocks Unicode bidirectional override characters (RLO, LRO, etc.)', () {
+      // Right-to-Left Override (\u202E) used to disguise executables e.g. "invoice\u202Etxt.exe"
+      expect(() => PathSanitizer.sanitize('invoice\u202Etxt.exe'),
+          throwsA(isA<InvalidPathException>()));
+      expect(() => PathSanitizer.sanitize('file\u202Aname.txt'),
+          throwsA(isA<InvalidPathException>()));
+      expect(() => PathSanitizer.sanitize('folder/\u2066secret\u2069.doc'),
+          throwsA(isA<InvalidPathException>()));
+    });
+
+    test('Valid paths are accepted and formatted', () {
       expect(PathSanitizer.sanitize('Photos/vacation.jpg'),
           equals('Photos/vacation.jpg'));
       expect(PathSanitizer.sanitize('เอกสาร/รายงาน ฉบับที่ 1.pdf'),
@@ -91,6 +109,25 @@ void main() {
       expect(PathSanitizer.sanitize('.hidden'), equals('.hidden'));
       expect(PathSanitizer.sanitize('name.with.dots.tar.gz'),
           equals('name.with.dots.tar.gz'));
+    });
+
+    test('validateOfferPaths detects case-insensitive collisions', () {
+      final collidingPaths = [
+        'Documents/Report.pdf',
+        'documents/report.pdf',
+      ];
+      expect(
+        () => PathSanitizer.validateOfferPaths(collidingPaths),
+        throwsA(isA<InvalidPathException>().having((e) => e.reason, 'reason', contains('collision'))),
+      );
+
+      final validPaths = [
+        'Documents/Report.pdf',
+        'Documents/Summary.pdf',
+        'Photos/img1.png',
+      ];
+      final validated = PathSanitizer.validateOfferPaths(validPaths);
+      expect(validated.length, equals(3));
     });
   });
 }
