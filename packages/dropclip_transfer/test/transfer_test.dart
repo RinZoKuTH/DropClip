@@ -4,7 +4,7 @@ import 'package:test/test.dart';
 void main() {
   group('DropClip Transfer Package', () {
     test('TransferProgress calculates percentage accurately', () {
-      final progress = TransferProgress(
+      const progress = TransferProgress(
         transferId: 'tx-1',
         itemId: 'item-1',
         bytesTransferred: 50,
@@ -15,4 +15,3 @@ void main() {
     });
   });
 }
-

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:crypto/crypto.dart';
 
 /// Calculates Short Authentication String (SAS) and Commitments according to PROTO-DC-V2.0 §5
@@ -51,7 +52,9 @@ class SasCalculator {
   /// Maintained for test vector conformance §18.1.
   /// [fpA] and [fpB] are SHA-256 hex strings (64 lowercase characters).
   /// [nonceBytes] is the 16-byte pairing nonce.
-  @Deprecated('Use calculateSasDual for QR mode or calculateSasPinMode for PIN mode')
+  @Deprecated(
+    'Use calculateSasDual for QR mode or calculateSasPinMode for PIN mode',
+  )
   static String calculateSas(String fpA, String fpB, Uint8List nonceBytes) {
     if (nonceBytes.length != 16) {
       throw ArgumentError('Nonce must be exactly 16 bytes');
@@ -64,11 +67,7 @@ class SasCalculator {
 
     // Ascending sort of fingerprints as lowercase hex strings
     final sorted = [normalizedA, normalizedB]..sort();
-    return _sas([
-      utf8.encode(sorted[0]),
-      utf8.encode(sorted[1]),
-      nonceBytes,
-    ]);
+    return _sas([utf8.encode(sorted[0]), utf8.encode(sorted[1]), nonceBytes]);
   }
 
   /// Computes 6-digit SAS string with dual nonces in QR Mode according to PROTO-DC-V2.0 §5.5.1.

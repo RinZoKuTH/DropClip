@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Keep source line endings consistent across Windows/macOS (dart format expects LF)
+*.dart text eol=lf
+*.yaml text eol=lf

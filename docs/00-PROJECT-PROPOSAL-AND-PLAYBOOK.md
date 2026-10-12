@@ -1,5 +1,5 @@
 # DropClip — Project Proposal & Engineering Playbook
-**Version:** 2.0 | **Status:** Approved for Implementation | **Owner:** Team Lead
+**Version:** 2.0 | **Status:** Draft / Under Review | **Owner:** Team Lead
 
 ---
 
@@ -134,7 +134,7 @@
 - **HTTP/1.1 Chunked** — จงใจไม่ใช้ HTTP/2 (flow-control window ทำให้ช้ากว่าบน LAN)
 - Streaming ทีละ chunk เท่านั้น — memory คงที่
 - SHA-256 per-chunk + whole-file
-- Resumable ด้วย HTTP Range
+- Resumable ด้วย `X-Offset` + `last_chunk_sha256` และ 64 MiB checkpoint ใน sidecar (PROTO §9.7, §12.4)
 
 ### 6.4 Security Model
 

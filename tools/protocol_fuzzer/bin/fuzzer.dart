@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:dropclip_protocol/dropclip_protocol.dart';
 
 void main(List<String> args) {
@@ -18,6 +19,8 @@ void main(List<String> args) {
     'a:b.txt',
     'bad\x1Bname.txt',
     'a//b',
+    r'CONIN$',
+    'invoice${String.fromCharCode(0x202E)}txt.exe', // RLO bidi override
   ];
 
   for (final vector in attackVectors) {
@@ -29,6 +32,8 @@ void main(List<String> args) {
     }
   }
 
-  stdout.writeln('Fuzzer finished: Successfully blocked $blockedCount / ${attackVectors.length} malicious vectors.');
+  stdout.writeln(
+    'Fuzzer finished: Successfully blocked $blockedCount / ${attackVectors.length} malicious vectors.',
+  );
+  if (blockedCount != attackVectors.length) exitCode = 1;
 }
-

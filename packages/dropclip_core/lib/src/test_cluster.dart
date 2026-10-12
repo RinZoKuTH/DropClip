@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+
 import 'package:dropclip_protocol/dropclip_protocol.dart';
 
 /// Simulated In-Memory Node representing a DropClip instance (T0.4).
@@ -16,9 +17,14 @@ class TestNode {
   Stream<Map<String, dynamic>> get messages => _inboundController.stream;
 
   void deliver(Map<String, dynamic> message) {
+    if (_inboundController.isClosed) return; // Late delivery after dispose
     if (message.containsKey('hlc')) {
       final remoteHlc = Hlc.parse(message['hlc'] as String);
-      clock = clock.merge(remoteHlc);
+      try {
+        clock = clock.merge(remoteHlc, DateTime.now().millisecondsSinceEpoch);
+      } on ClockDriftException {
+        return; // Rejected per PROTO §10.3 (MAX_CLOCK_DRIFT)
+      }
     }
     receivedHistory.add(Map<String, dynamic>.from(message));
     _inboundController.add(message);
@@ -38,7 +44,9 @@ class TestCluster {
   final Set<String> _partitions = {}; // Set of "idA<->idB" bidirectional cuts
   Duration latency = Duration.zero;
   double packetLossRate = 0.0;
-  final Random _random = Random(42); // Deterministic seed for reproducible tests
+  final Random _random = Random(
+    42,
+  ); // Deterministic seed for reproducible tests
   final List<Future<void>> _inFlightDeliveries = [];
 
   TestCluster._();
@@ -50,7 +58,11 @@ class TestCluster {
   /// Spawns an in-memory cluster of [count] virtual nodes.
   static Future<TestCluster> spawn(int count) async {
     if (count < 2) {
-      throw ArgumentError.value(count, 'count', 'Cluster must have at least 2 nodes');
+      throw ArgumentError.value(
+        count,
+        'count',
+        'Cluster must have at least 2 nodes',
+      );
     }
     final cluster = TestCluster._();
     for (var i = 0; i < count; i++) {
@@ -104,7 +116,7 @@ class TestCluster {
     // Attach sender HLC if not present
     final packetToSend = Map<String, dynamic>.from(packet);
     if (!packetToSend.containsKey('hlc')) {
-      sender.clock = sender.clock.increment();
+      sender.clock = sender.clock.tick(DateTime.now().millisecondsSinceEpoch);
       packetToSend['hlc'] = sender.clock.toString();
     }
 
@@ -136,7 +148,8 @@ class TestCluster {
   /// Waits until all in-flight delayed packets have completed.
   Future<void> settle({Duration timeout = const Duration(seconds: 2)}) async {
     if (_inFlightDeliveries.isEmpty) return;
-    await Future.wait(_inFlightDeliveries).timeout(timeout, onTimeout: () => []);
+    await Future.wait(_inFlightDeliveries)
+        .timeout(timeout, onTimeout: () => []);
     _inFlightDeliveries.clear();
   }
 
@@ -150,4 +163,3 @@ class TestCluster {
     _inFlightDeliveries.clear();
   }
 }
-

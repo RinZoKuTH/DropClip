@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:dropclip_core/dropclip_core.dart';
 import 'package:test/test.dart';
 
@@ -11,14 +12,16 @@ MHcCAQEEIIz9U/R5c+76w1yX1a7s5tM4k+79A9jK3a71b2c3d4e5
 oAoGCCqGSM49AwEHoUQDQgAE
 -----END EC PRIVATE KEY-----''';
 
-      final logMessage = 'Key generation successful: $pemKey for node-1';
+      const logMessage = 'Key generation successful: $pemKey for node-1';
       final scrubbed = LoggingScrubber.scrubText(logMessage);
 
       expect(scrubbed, contains('[REDACTED_PRIVATE_KEY]'));
       expect(scrubbed, isNot(contains('MHcCAQEEIIz9U')));
     });
 
-    test('Redacts sensitive keys (pin, password, token, private_key) in structured data', () {
+    test(
+        'Redacts sensitive keys (pin, password, token, private_key) in structured data',
+        () {
       final data = {
         'device_name': 'MacBook Pro',
         'pin': '639589',
@@ -36,7 +39,9 @@ oAoGCCqGSM49AwEHoUQDQgAE
       expect(scrubbed['token'], equals('[REDACTED]'));
     });
 
-    test('Redacts raw payload and clipboard content while preserving length metadata', () {
+    test(
+        'Redacts raw payload and clipboard content while preserving length metadata',
+        () {
       final data = {
         'event': 'clipboard.update',
         'payload': 'Secret company contract and personal identifiers',
@@ -45,7 +50,7 @@ oAoGCCqGSM49AwEHoUQDQgAE
 
       final scrubbed = LoggingScrubber.scrubData(data) as Map<String, dynamic>;
 
-      expect(scrubbed['payload'], equals('[REDACTED_CONTENT: length=49]'));
+      expect(scrubbed['payload'], equals('[REDACTED_CONTENT: length=48]'));
       expect(scrubbed['clip_text'], equals('[REDACTED_CONTENT: length=17]'));
       expect(scrubbed['payload'], isNot(contains('Secret company contract')));
     });
@@ -54,20 +59,18 @@ oAoGCCqGSM49AwEHoUQDQgAE
       final data = {
         'session': {
           'user': 'alice',
-          'credentials': {
-            'private_key': '0123456789abcdef',
-          },
+          'credentials': {'private_key': '0123456789abcdef'},
         },
         'items': [
           {'pin': '123456'},
-          {'status': 'ok'}
+          {'status': 'ok'},
         ],
       };
 
       final scrubbed = LoggingScrubber.scrubData(data) as Map<String, dynamic>;
 
-      final nested = (scrubbed['session'] as Map<String, dynamic>)['credentials']
-          as Map<String, dynamic>;
+      final nested = (scrubbed['session']
+          as Map<String, dynamic>)['credentials'] as Map<String, dynamic>;
       expect(nested['private_key'], equals('[REDACTED]'));
 
       final items = scrubbed['items'] as List;
@@ -99,4 +102,3 @@ oAoGCCqGSM49AwEHoUQDQgAE
     });
   });
 }
-

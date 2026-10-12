@@ -4,7 +4,7 @@
 |---|---|
 | **รหัสเอกสาร** | TICKET-DC-V2.0 |
 | **Document Version** | 2.0 — Realigned to SRS-DC-V1.2 & PROTO-DC-V2.0 |
-| **สถานะ** | Approved for Sprint Planning & Implementation |
+| **สถานะ** | Draft / Under Review (ทีมจัดทำ — ยังไม่ผ่านการอนุมัติจากผู้ประเมิน) |
 | **Project Lead** | นายธนกฤต บุญญาวรกุล (เจ) — Team Lead & System Architect |
 | **เอกสารอ้างอิง** | `00-PROJECT-PROPOSAL-AND-PLAYBOOK.md` (v2.0), `01-PROTOCOL-SPEC.md` (v2.0), `03-SRS.md` (SRS-DC-V1.2) |
 | **Import Compatibility** | GitHub Projects / Linear / Jira CSV Import |
@@ -234,7 +234,7 @@ main (Protected — Production Ready, Always Stable)
   - ฟังก์ชัน `sanitizePath()` ที่ป้องกันการโจมตี Path Traversal ครบ 12 รูปแบบตาม Protocol Spec §17.3 และ §18.6
 - **Acceptance Criteria:**
   - [ ] มี Data Class และ JSON Serialization ครบทุกข้อความใน Protocol Spec §7
-  - [ ] คำนวณค่า SAS ได้ผลลัพธ์ `"579318"` (QR mode) และ `"738586"` (PIN mode) ตรงกับ Test Vector 100%
+  - [ ] คำนวณค่า SAS ได้ผลลัพธ์ `"337017"` (QR mode) และ `"639589"` (PIN mode) ตรงกับ Test Vector 100%
   - [ ] ฟังก์ชัน `sanitizePath()` สกัดกั้น Path Attack ได้ครบทั้ง 12 Vectors (V1–V12)
   - [ ] มี Fuzz Test สุ่มข้อมูลไบนารีเข้า Parser อย่างน้อย 10,000 ครั้ง โดยไม่ทำให้ระบบ Uncaught Crash
 
@@ -379,13 +379,13 @@ main (Protected — Production Ready, Always Stable)
   - Client สร้าง $N_B$ และส่ง Commitment $C_B = \text{SHA-256}(\text{"dropclip-commit-v1:"} \parallel N_B \parallel \text{fp}_B)$ ไปยัง Host ก่อนผ่าน `POST /api/v1/pair`
   - Host ส่ง $N_A$ ยืนยันกลับ จากนั้น Client จึงเปิดเผย $N_B$ ใน `POST /api/v1/pair/confirm`
   - ทั้งสองฝั่งคำนวณและแสดงรหัส Short Authentication String (SAS) 6 หลัก:
-    - QR Mode: $\text{SHA-256}(fp_{lo} \parallel fp_{hi} \parallel N_A \parallel N_B) \bmod 10^6$ (Test Vector `"482910"`)
+    - QR Mode: $\text{SHA-256}(fp_{lo} \parallel fp_{hi} \parallel N_A \parallel N_B) \bmod 10^6$ (Test Vector `"337017"`)
     - PIN Mode: $\text{SHA-256}(fp_{lo} \parallel fp_{hi} \parallel N_A \parallel N_B \parallel \text{"dropclip-pin-salt-v1:"} \parallel \text{UTF8}(\text{PIN})) \bmod 10^6$ (Test Vector `"639589"`)
   - ป้องกัน Active MITM Brute-force Collision ได้อย่างสมบูรณ์ตาม ADR-009 พร้อม Rate Limiting (5 ครั้ง/นาที)
 - **Acceptance Criteria:**
   - [ ] กระบวนการจับคู่เสร็จสิ้นภายใน **< 15 วินาที** รวมขั้นตอนการสแกนและยืนยัน
   - [ ] Commitment Scheme ป้องกันการสุ่มค้นหา Keypair ชนกัน (Collision) ของ MITM ได้ 100%
-  - [ ] รหัส SAS แสดงผลตรงกันทั้งสองฝั่ง และตรงตาม Test Vector ใน Protocol Spec §18.1 (`"482910"`) และ §18.2 (`"639589"`) 100%
+  - [ ] รหัส SAS แสดงผลตรงกันทั้งสองฝั่ง และตรงตาม Test Vector ใน Protocol Spec §18.1 (`"337017"`) และ §18.2 (`"639589"`) 100%
   - [ ] ยืนยันว่าไม่มีการส่ง PIN หรือ Hash ของ PIN บนเครือข่ายเด็ดขาด (Zero PIN on Wire) ผ่าน Packet Capture Inspection
   - [ ] หากผู้ใช้กดยืนยันว่า SAS ไม่ตรงกัน ระบบต้องตัดการเชื่อมต่อทันทีและไม่บันทึกความเชื่อถือ
   - [ ] ระบบจำกัดความถี่การขอจับคู่ไม่เกิน 5 ครั้งต่อนาทีต่อ IP และระงับ 5 นาทีหากผิดพลาด 3 ครั้ง
@@ -406,6 +406,8 @@ main (Protected — Production Ready, Always Stable)
   - กำหนดพอร์ตแบบไดนามิกในช่วง TCP 53317–53417
   - บังคับใช้ TLS 1.3 และปฏิเสธการเชื่อมต่อระดับ TLS 1.2 หรือต่ำกว่า (Downgrade Prevention)
   - ตรวจสอบ Client Certificate และ Server Certificate ด้วย SHA-256 Fingerprint Pinning
+  - ตามผล S0.1: server context ใช้ `withTrustedRoots: false` + `setTrustedCertificatesBytes()` ของ peer ที่ pair แล้ว, endpoint pairing รับ connection ที่ไม่มี client cert, และตรวจ fingerprint ซ้ำที่ application layer ทุก request (PROTO §4.4)
+  - โหลด private key จาก envelope-encrypted storage ด้วย `usePrivateKeyBytes` (PROTO §4.2)
 - **Acceptance Criteria:**
   - [ ] ปฏิเสธการเชื่อมต่อจาก Certificate ที่ไม่ปรากฏใน Trusted Device Store ด้วยรหัส `403 E_NOT_PAIRED`
   - [ ] สกัดกั้นการโจมตี Downgrade Attack สู่โปรโตคอล TLS เวอร์ชันเก่าได้ 100%
@@ -555,12 +557,12 @@ main (Protected — Production Ready, Always Stable)
   พัฒนากลไกการส่งไฟล์ต่อจากจุดเดิมเมื่อการเชื่อมต่อหลุดกลางคัน และการตรวจสอบความถูกต้องสมบูรณ์ของไฟล์ตาม FR-08, FR-09 และ Protocol Spec §9.7, §12.4
 - **Technical Detail:**
   - ตรวจสอบสถานะและ Offset ของไฟล์ชั่วคราว `.part` ผ่าน `GET /api/v1/file/{transfer_id}/{item_id}/status`
-  - รองรับ 64 MiB Checkpoint Hash บันทึกลงใน Sidecar File `.part.json` เพื่อกู้คืนและตรวจสอบเฉพาะ Chunk ล่าสุด ช่วยให้เริ่มส่งไฟล์ระดับหลายกิกะไบต์ต่อได้ทันทีภายใน < 200 ms โดยไม่ต้อง Rehash ข้อมูลหลายกิกะไบต์ใหม่ทั้งหมด
+  - รองรับ 64 MiB Checkpoint Hash บันทึกลงใน Sidecar File `.part.json` เพื่อตรวจความถูกต้องของ `.part` เมื่อ resume — ผู้รับ rehash `.part` แบบ streaming ตั้งแต่ byte 0 (ไม่กู้คืน hasher state เพราะ `package:crypto` ไม่รองรับ) ดู Protocol Spec §12.4
   - เปรียบเทียบผลรวมแฮช SHA-256 ทั้งไฟล์เมื่อการส่งเสร็จสิ้นก่อนเปลี่ยนชื่อเป็นไฟล์จริง
   - ลบไฟล์ชั่วคราว `.part` และ `.part.json` อัตโนมัติหากพบ Checksum ไม่ตรง หรือเมื่อเกิดข้อผิดพลาดดิสก์เต็ม
 - **Acceptance Criteria:**
   - [ ] จำลองเครือข่ายหลุดระหว่างส่งไฟล์ที่ความคืบหน้า 10%, 50%, และ 90% สามารถกู้คืนและส่งต่อได้สำเร็จ 100%
-  - [ ] Resume ได้ทันทีภายใน < 200 ms โดยอาศัย 64 MiB Checkpoint Hashing ใน Sidecar File
+  - [ ] Resume ไม่ต้องส่งข้อมูลที่ persist แล้วซ้ำ และตรวจ checkpoint ใน Sidecar File ได้ถูกต้อง (เวลา rehash ขึ้นกับขนาด `.part` — วัดจริงและบันทึกผล)
   - [ ] ไฟล์ที่โอนย้ายสำเร็จมีค่า SHA-256 Checksum ตรงกับต้นฉบับ **100% จากการทดสอบ 500 ครั้ง** (NFR-RE01)
   - [ ] จัดการข้อผิดพลาดดิสก์เต็ม (`507 E_DISK_FULL`) โดยลบไฟล์ขยะและไม่ทำให้ระบบค้าง
 
@@ -578,7 +580,7 @@ main (Protected — Production Ready, Always Stable)
   - System Tray / Menubar UI แสดงรายการอุปกรณ์ออนไลน์และสถานะการเชื่อมต่อ
   - Floating Dropzone Window รองรับการลากไฟล์มาวาง (Drag-and-Drop) แล้วเลือกเครื่องปลายทาง
   - แสดงแถบ Progress Bar ระบุความเร็วการส่ง (MB/s) และเวลาที่เหลือโดยประมาณ
-  - รองรับ Auto-Start on Boot ผ่าน `SMAppService` (macOS) และ Registry Run Key (Windows) ในโหมด `--hidden`
+  - รองรับ Auto-Start on Boot ผ่าน `SMAppService` (macOS 13+ / LaunchAgent บน macOS 12) และ Registry Run Key (Windows) ในโหมด `--hidden`
 - **Acceptance Criteria:**
   - [ ] เมื่อบูตเครื่องใหม่ แอปเปิดทำงานใน System Tray อย่างเงียบสงบโดยไม่แสดง Pop-up กวนใจ (NFR-U03)
   - [ ] ลากไฟล์หลายรายการพร้อมกันลงใน Dropzone แล้วส่งไปยังเครื่องปลายทางได้อย่างราบรื่น
@@ -938,14 +940,14 @@ main (Protected — Production Ready, Always Stable)
 
 ## 6. Workload Distribution Summary
 
-ตารางสรุปสัดส่วนภาระงาน (Workload Distribution) แยกตามสมาชิกทั้ง 5 คน ตลอดระยะเวลาการดำเนินโครงการ 24 สัปดาห์ (Rebalanced):
+*(คำนวณใหม่ใน PCR-03 จาก Estimate ของทุก ticket: ticket ที่มีเจ้าของร่วมแบ่งวันเท่ากัน ไม่รวม Gate — รวม 145 วัน)* ตารางสรุปสัดส่วนภาระงาน (Workload Distribution) แยกตามสมาชิกทั้ง 5 คน ตลอดระยะเวลาการดำเนินโครงการ 24 สัปดาห์ (Rebalanced):
 
 | Role Code | สมาชิกในทีม | จำนวน Tickets หลัก | รวมประมาณการวันทำงาน (Est. Working Days) | สัดส่วนภาระงาน (%) | ขอบเขตโมดูลหลักที่รับผิดชอบ |
 |:---:|---|:---:|:---:|:---:|---|
-| `LEAD` | **นายธนกฤต บุญญาวรกุล (เจ)** | 9 Tickets | 27.5 วัน | 18.8% | System Architecture, Protocol Core, Security/Crypto Engine, Signed Cluster Revocation (T1.13), iOS Network Privacy & NWBrowser (T3.1), Pair-Program T1.3 with MOB, CI/CD, Code Signing & Release |
-| `DESK` | **นายณัฐธีร์ อโณทัยไพบูลย์ (ธีร์)** | 6 Tickets | 31.0 วัน | 21.2% | Logging Scrubber, mDNS Discovery, macOS Native Clipboard Watcher (T1.6), Cross-OS Image Normalizer (T1.8), Clipboard Sync Engine & Loop Prevention, Desktop UI & System Tray |
-| `MOB` | **นายเกื้ออนันต์ พวงนิลน้อย (เกื้อ)** | 10 Tickets | 37.5 วัน | 25.7% | Mobile Spikes, Pair-Program T1.3 with LEAD, Android Service & UI, iOS Extensions, Widgets & PhotoKit File Engine (T3.2–T3.4) |
-| `NET` | **นายปัณณ์ ศรีเจริญชัยกุล (ปัน)** | 5 Tickets | 24.0 วัน | 16.4% | TLS Transport, WebSocket Control Plane, Windows Native Clipboard Watcher (T1.7), Streaming File Engine, Resumable Transfer Engine |
-| `QA` | **นายปรมินทร์ มุขอาษา (ตามด)** | 6 Tickets | 26.0 วัน | 17.8% | STRIDE Threat Model (T0.5), Test Cluster Harness, Desktop Pentest Audit (GATE-1), Benchmark Suite, Mobile Pentest, Chaos/Soak Testing, UX Study |
+| `LEAD` | **นายธนกฤต บุญญาวรกุล (เจ)** | 13 Tickets (5 ร่วม) | 35.5 วัน | 24.5% | System Architecture, Protocol Core, Security/Crypto Engine, Signed Cluster Revocation (T1.13), iOS Network Privacy & NWBrowser (T3.1), Pair-Program T1.3 with MOB, CI/CD, Code Signing & Release |
+| `DESK` | **นายณัฐธีร์ อโณทัยไพบูลย์ (ธีร์)** | 6 Tickets | 31.0 วัน | 21.4% | Logging Scrubber, mDNS Discovery, macOS Native Clipboard Watcher (T1.6), Cross-OS Image Normalizer (T1.8), Clipboard Sync Engine & Loop Prevention, Desktop UI & System Tray |
+| `MOB` | **นายเกื้ออนันต์ พวงนิลน้อย (เกื้อ)** | 10 Tickets (5 ร่วม) | 28.0 วัน | 19.3% | Mobile Spikes, Pair-Program T1.3 with LEAD, Android Service & UI, iOS Extensions, Widgets & PhotoKit File Engine (T3.2–T3.4) |
+| `NET` | **นายปัณณ์ ศรีเจริญชัยกุล (ปัน)** | 8 Tickets (3 ร่วม) | 30.5 วัน | 21.0% | TLS Transport, WebSocket Control Plane, Windows Native Clipboard Watcher (T1.7), Streaming File Engine, Resumable Transfer Engine |
+| `QA` | **นายปรมินทร์ มุขอาษา (ตามด)** | 6 Tickets (1 ร่วม) | 20.0 วัน | 13.8% | STRIDE Threat Model (T0.5), Test Cluster Harness, Desktop Pentest Audit (GATE-1), Benchmark Suite, Mobile Pentest, Chaos/Soak Testing, UX Study |
 | `ALL` | **ทั้งทีม 5 คนร่วมกัน** | 4 Gates | 2 สัปดาห์ (Dogfooding) | — | Phase Gate Reviews, Dogfooding Testing, Final Deployment Approval |
 | **รวม** | **5 คน** | **34 Tickets + 4 Gates** | **~146 working days** | **100.0%** | **กระจายภาระงานสมดุล พร้อมรับการพัฒนาระยะยาว 24 สัปดาห์** |

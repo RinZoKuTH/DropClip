@@ -36,7 +36,7 @@
 ```
 
 > **คำแนะนำสำหรับ AI Coding Assistants (Cursor, Copilot, etc.):**  
-> ให้อ่านและปฏิบัติตาม [`AGENTS.md`](file:///c:/Users/UsEr/Documents/GitHub/DropClip/AGENTS.md) และ [`.cursorrules`](file:///c:/Users/UsEr/Documents/GitHub/DropClip/.cursorrules) อย่างเคร่งครัด
+> ให้อ่านและปฏิบัติตาม [`AGENTS.md`](AGENTS.md) และ [`.cursorrules`](.cursorrules) อย่างเคร่งครัด
 
 ---
 

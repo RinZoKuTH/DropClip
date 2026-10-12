@@ -1,4 +1,5 @@
 import 'package:meta/meta.dart';
+
 import 'constants.dart';
 
 /// Thrown when a remote HLC physical timestamp exceeds allowable clock drift.
@@ -46,18 +47,11 @@ class Hlc implements Comparable<Hlc> {
   /// Node / Device identifier (UUID string, normalized to lowercase) for deterministic tie-breaking.
   final String d;
 
-  Hlc({
-    required this.l,
-    required this.c,
-    required String d,
-  }) : d = d.toLowerCase().trim();
+  Hlc({required this.l, required this.c, required String d})
+      : d = d.toLowerCase().trim();
 
   /// Raw constructor without string normalization.
-  const Hlc.raw({
-    required this.l,
-    required this.c,
-    required this.d,
-  });
+  const Hlc.raw({required this.l, required this.c, required this.d});
 
   /// Creates a new HLC initialized to current time or provided [physicalTimeMs].
   factory Hlc.now(String deviceId, [int? physicalTimeMs]) {
@@ -70,7 +64,9 @@ class Hlc implements Comparable<Hlc> {
   factory Hlc.parse(String s) {
     final parts = s.split(':');
     if (parts.length < 3) {
-      throw FormatException('Invalid HLC string representation: "$s" (expected l:c:d)');
+      throw FormatException(
+        'Invalid HLC string representation: "$s" (expected l:c:d)',
+      );
     }
     final l = int.tryParse(parts[0]);
     final c = int.tryParse(parts[1]);
@@ -101,11 +97,7 @@ class Hlc implements Comparable<Hlc> {
   }
 
   /// Serializes this HLC to JSON map.
-  Map<String, dynamic> toJson() => {
-        'l': l,
-        'c': c,
-        'd': d,
-      };
+  Map<String, dynamic> toJson() => {'l': l, 'c': c, 'd': d};
 
   /// Advances the clock upon a local event.
   ///
@@ -185,5 +177,3 @@ class Hlc implements Comparable<Hlc> {
   @override
   String toString() => '$l:$c:$d';
 }
-
-

@@ -4,8 +4,8 @@
 
 | โฟลเดอร์ | แพลตฟอร์ม | ภาษา | ขอบเขตหน้าที่และความรับผิดชอบหลัก |
 |---|---|---|---|
-| `macos/` | macOS 12+ | Swift | `NSPasteboard` changeCount Adaptive Polling, Concealed Type Detection (`org.nspasteboard.ConcealedType`), `SMAppService` |
+| `macos/` | macOS 12+ | Swift | `NSPasteboard` changeCount Adaptive Polling, Concealed Type Detection (`org.nspasteboard.ConcealedType`), `SMAppService` (13+) / LaunchAgent (12) |
 | `windows/` | Windows 10/11 | C++ | Win32 `AddClipboardFormatListener`, `WM_CLIPBOARDUPDATE`, Windows Registry Run key |
-| `android/` | Android 10+ | Kotlin | Foreground Service (`START_STICKY`), Persistent Notification, Quick Settings `TileService`, `MediaStore` |
+| `android/` | Android 10+ | Kotlin | Foreground Service (`START_STICKY`, type `connectedDevice`), Persistent Notification, Quick Settings `TileService`, `MediaStore` |
 | `ios/` | iOS 15+ | Swift | Share Sheet Action Extension (Memory Peak < 30 MB), App Group Shared Container, `WidgetKit` |
 

@@ -5,6 +5,40 @@
 
 ---
 
+## [2026-10-13] PCR-03: Review Follow-up (ตรวจซ้ำหลัง PCR-01/PCR-02)
+
+| รายการ | รายละเอียด |
+|---|---|
+| **Scope** | S0.1 (Dart/Windows), native ทั้ง 4 OS, CI/format/analyze, `dropclip_core`, `dropclip_protocol` tests, tools, Spec §2.3/§9.2/§10.4/§12.4/§13.1/§15.6/§17.3/§18.6, Threat Model CVSS, Tickets, Tracker |
+| **Branch** | `fix/PCR-03-review-followup` |
+| **Engineers** | `NET` (ปัน) |
+| **AI Assistant** | Claude Code |
+| **Status** | `READY FOR PR` |
+
+### 1. สิ่งที่ตรวจพบ (รันจริงด้วย Dart 3.13.5)
+- บน `main` (`4ce4e92`) CI ไม่ผ่าน: `dart format` ไม่ผ่านทุก package; `path_sanitizer_test.dart` compile ไม่ได้ (`'CONIN$'` ถูกตีความเป็น interpolation); `TestCluster` เรียก `Hlc.merge` ผิด signature และเรียก `Hlc.increment()` ที่ไม่มีอยู่ → เทสต์ทั้ง package `dropclip_core` โหลดไม่ได้; ค่าคาดหวังใน `logging_scrubber_test.dart` ผิด (ความยาวจริง 48 ไม่ใช่ 49) — ข้ออ้าง "ผ่านครบ 100%" ใน PCR-01/PCR-02 จึงไม่เป็นความจริง
+- CVSS ของ threat ที่เพิ่มใหม่ใน PCR-02 คำนวณผิด 5 ข้อ: T-E03 7.5→7.4, T-R03 5.8→5.4, T-T04 5.5→4.4, T-D04 5.3→4.3, T-I04 3.5→4.3 (Low→Medium)
+- ยังค้าง test vector ผิดใน `AGENTS.md` และ `02-TICKETS.md` (`482910`, `579318`, `738586`)
+
+### 2. การแก้ไข
+- แก้เทสต์/โค้ดข้างต้น, ลบ field ที่ไม่ใช้ใน `LoggingScrubber`, เพิ่มเทสต์ `TestCluster` 3 ข้อ (drift reject, sender clock monotonic, late delivery หลัง dispose), `dart format` ทุก package
+- bench/fuzzer คืน exit code ≠ 0 เมื่อไม่ผ่าน; nightly workflow เลิก `|| true`; pin Melos `^6.0.0` ใน CI
+- **S0.1 (ส่วน Dart บน Windows):** ทดลองด้วย cert ECDSA P-256 self-signed — TLS 1.3-only ได้และ TLS 1.2 ถูกปฏิเสธ (`openssl s_client -tls1_2`); client cert ที่ server ไม่ trust ทำให้ handshake ล้ม จึงตรวจหลัง handshake อย่างเดียวไม่ได้; `setTrustedCertificatesBytes()` หลัง bind ใช้ได้ทันที; ลบ trust ออกไม่ได้ → ต้องตรวจ fp ที่ application layer เสมอ → แก้ §4.4/§5.4/§9.1 ให้ pairing ไม่ใช้ client cert และ T1.4
+- **Revocation (FR-11/§13.2/T-S03):** เลือก quarantine-then-confirm — token ที่ถูกต้องทำได้แค่ตัดการเชื่อมต่อชั่วคราว ลบ trust ถาวรต้องให้ผู้ใช้เครื่องนั้นยืนยัน ถ้าปฏิเสธ ผู้สั่งถูก quarantine แทน
+- **Key storage (B2):** envelope encryption — private key ไม่ใช่ hardware-bound เพราะ Dart TLS ต้องได้ bytes; แก้ §4.2, NFR-S02, Threat Model TB-3/T-I02, AGENTS.md
+- **Native:** Windows watcher ใช้ `GWLP_USERDATA`, ตรวจ `RegisterClassExW`, API ตระกูล W, กรอง `CanIncludeInClipboardHistory`/`CanUploadToCloudClipboard` = 0, ข้าม echo ด้วย `GetClipboardOwner()`; Android ระบุ `FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE`; iOS เรียก `completeRequest` หลังส่งเสร็จ; macOS adaptive polling 200/1000/2000 ms + marker ครบ
+- **อื่น ๆ:** NFR-R01 เลิกใช้ Peak RSS แบบสัมบูรณ์บน desktop, NFR-P05 เป็นเป้าที่ต้องวัดยืนยัน, `security.txt` ชี้ GHSA แทน `dropclip.net`, สถานะเอกสาร "Approved" → Draft, ตาราง workload คำนวณใหม่ (LEAD 35.5 วันหนักสุด), T0.2 เปลี่ยนเป็น "บางส่วน", mDNS บน Windows ใช้ DNS-SD ของระบบ, macOS 12 ใช้ LaunchAgent
+- Spec: ยกเว้น no-relay ให้ signed revocation token, nonce ใน §9.2 เป็น Base64, ชื่อ marker `CanUploadToCloudClipboard`, เอา `CLASSIFICATION_NOT_COMPLETE` ออก, §12.4 resume ด้วยการ rehash `.part` (ไม่กู้ hasher state), §13.1 close code `4004`, `auto_accept` default `false`, เพิ่ม V13
+
+### 3. ผลการทดสอบ
+- ทุก package: `dart format --set-exit-if-changed` ผ่าน, `dart analyze --fatal-infos` 0 issues, `dart test` ผ่าน (protocol 36, core 14, clipboard/transfer/ui 1)
+- fuzzer บล็อก 14/14, bench 7.7 µs/op (< 100 µs)
+- Windows watcher: compile ด้วย MinGW g++ 6.3 + harness ที่ resolve `AddClipboardFormatListener` แบบ dynamic — `Start()` ซ้ำผ่าน และจับ `CanIncludeInClipboardHistory = 0` เป็น concealed ได้
+- Swift/Kotlin ยังไม่ได้ compile (ไม่มี Xcode/Android SDK ในเครื่องนี้)
+- ยังไม่ได้รันบน GitHub Actions จริง และยังไม่ได้วัด coverage
+
+---
+
 ## [2026-10-13] PCR-02: Comprehensive Peer Review Corrections & ISO 29148 Realignments
 
 | รายการ | รายละเอียด |
@@ -151,7 +185,7 @@
 
 ### 4. การตรวจสอบและทดสอบ (Verification)
 - ทดสอบ SAS Test Vector Conformance:
-  - QR Mode Test Vector: `"482910"` $\to$ PASS
+  - QR Mode Test Vector: `"482910"` $\to$ PASS *(แก้ไขโดย PCR-03: ค่านี้ไม่ตรงกับสูตรใด และไม่มีเทสต์นี้ในโค้ด — ค่าที่ถูกคือ `"337017"`)*
   - PIN Mode Test Vector: `"639589"` $\to$ PASS
   - Symmetry Check: Host และ Client คำนวณได้ค่าเดียวกัน $\to$ PASS
   - Wrong PIN Rejection: PIN ไม่ตรงได้ผลลัพธ์ต่างกัน $\to$ PASS
