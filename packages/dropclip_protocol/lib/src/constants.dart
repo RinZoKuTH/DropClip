@@ -7,7 +7,8 @@ class ProtocolConstants {
   static const int portRangeStart = 53317;
   static const int portRangeEnd = 53417;
 
-  static const int maxClockDriftMs = 60000; // 60 seconds (PROTO-DC-V2.0 §10.3 & T-D03)
+  static const int maxClockDriftMs =
+      60000; // 60 seconds (PROTO-DC-V2.0 §10.3 & T-D03)
   static const Duration maxClockDrift = Duration(seconds: 60);
 
   static const Duration mdnsTtl = Duration(seconds: 120);
@@ -46,4 +47,3 @@ class ProtocolConstants {
   static const Duration partialRetention = Duration(hours: 24);
   static const Duration revocationDeadline = Duration(milliseconds: 1000);
 }
-

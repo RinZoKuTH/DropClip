@@ -27,4 +27,3 @@ class TransferProgress {
   double get fraction => totalBytes == 0 ? 0.0 : bytesTransferred / totalBytes;
   double get percentage => fraction * 100.0;
 }
-

@@ -5,10 +5,7 @@ class ClipboardItem {
   final String mime;
   final List<int> data;
 
-  const ClipboardItem({
-    required this.mime,
-    required this.data,
-  });
+  const ClipboardItem({required this.mime, required this.data});
 }
 
 /// Abstract contract for clipboard access across platforms (PROTO-DC-V2.0 §14.1)
@@ -20,4 +17,3 @@ abstract interface class PlatformClipboard {
   Future<void> clear();
   int changeToken();
 }
-

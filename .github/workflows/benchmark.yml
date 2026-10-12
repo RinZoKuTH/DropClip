@@ -19,20 +19,18 @@ jobs:
           sdk: stable
 
       - name: Install Melos
-        run: dart pub global activate melos
+        run: dart pub global activate melos ^6.0.0
 
       - name: Bootstrap Workspace
         run: melos bootstrap
 
+      # Path-vector smoke check (not a real fuzzer yet); fails on any unblocked vector.
       - name: Run Protocol Fuzzer
-        run: |
-          if [ -d "tools/protocol_fuzzer" ]; then
-            cd tools/protocol_fuzzer && dart test || true
-          fi
+        working-directory: tools/protocol_fuzzer
+        run: dart run bin/fuzzer.dart
 
-      - name: Run Benchmark Tests
-        run: |
-          if [ -d "tools/bench" ]; then
-            cd tools/bench && dart test || true
-          fi
+      # SAS micro-benchmark only; fails when the per-op target is exceeded.
+      - name: Run Benchmark
+        working-directory: tools/bench
+        run: dart run bin/bench.dart
 

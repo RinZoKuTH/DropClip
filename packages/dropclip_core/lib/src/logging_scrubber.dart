@@ -20,15 +20,13 @@ class LoggingScrubber {
     caseSensitive: false,
   );
 
-  static final RegExp _pinInTextRegex = RegExp(
-    r'(?<!\d)\d{6}(?!\d)',
-  );
-
-  /// Scrubs a plain string for embedded PEM keys, tokens, or sensitive patterns.
+  /// Scrubs a plain string for embedded PEM private keys.
+  ///
+  /// Free-text PINs are not detected here; pass them as structured `data`
+  /// under a sensitive key (e.g. `pin`) so [scrubData] redacts them.
   static String scrubText(String input) {
     if (input.isEmpty) return input;
-    var scrubbed = input.replaceAll(_pemPrivateKeyRegex, '[REDACTED_PRIVATE_KEY]');
-    return scrubbed;
+    return input.replaceAll(_pemPrivateKeyRegex, '[REDACTED_PRIVATE_KEY]');
   }
 
   /// Recursively scrubs a Map, List, or primitive dynamic data structure.
@@ -97,4 +95,3 @@ class LoggingScrubber {
     return jsonEncode(record);
   }
 }
-

@@ -8,11 +8,23 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 
 /**
  * Android Foreground Service managing passive clipboard writes and WebSocket lifecycle (FR-03B)
+ *
+ * Required AndroidManifest.xml entries (targetSdk 34+ crashes with
+ * MissingForegroundServiceTypeException without them):
+ *
+ *   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+ *   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+ *   <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />  <!-- mDNS; also satisfies the connectedDevice prerequisite -->
+ *   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />           <!-- Android 13+: request at runtime -->
+ *   <service android:name=".DropClipForegroundService"
+ *            android:foregroundServiceType="connectedDevice"
+ *            android:exported="false" />
  */
 class DropClipForegroundService : Service() {
 
@@ -23,7 +35,15 @@ class DropClipForegroundService : Service() {
         super.onCreate()
         createNotificationChannel()
         val notification = buildForegroundNotification()
-        startForeground(NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -70,4 +90,3 @@ class DropClipForegroundService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 }
-

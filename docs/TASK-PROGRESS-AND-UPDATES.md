@@ -30,20 +30,20 @@
 |---|:---:|:---:|
 | **สถานะเฟสปัจจุบัน** | **Phase 0 Completed $\to$ Entering Phase 1** | สัปดาห์ 1–2 (Foundation & Spikes) |
 | **จำนวน Tickets ทั้งหมด** | 34 Tickets + 4 Gates | 24 สัปดาห์ |
-| **Tickets ที่เสร็จสิ้นแล้ว** | **6 / 34** (17.6%) | Phase 0 Baseline Done |
+| **Tickets ที่เสร็จสิ้นแล้ว** | **5 / 34** (14.7%) | Phase 0 Baseline Done |
 | **Tickets ที่กำลังดำเนินการ** | **2 / 34** | S0.1, S0.2 (In Spikes) |
-| **สถานะ CI Automation** | **Passing** (`.github/workflows/ci.yml`) | Melos Monorepo Lint, Analyze & Test |
-| **ความพร้อมของเอกสารสเปก** | **100% Approved & Harmonized** | Protocol Spec v2.0, SRS v1.2, Threat Model |
+| **สถานะ CI Automation** | **Failing บน `main` (`4ce4e92`)** — format/analyze ไม่ผ่าน และเทสต์ protocol/core compile ไม่ได้; แก้ใน PCR-03 | Melos Monorepo Lint, Analyze & Test |
+| **ความพร้อมของเอกสารสเปก** | **Draft — ยังมี Open Issues** (ดู PCR-03) | Protocol Spec v2.0, SRS v1.2, Threat Model |
 
 ---
 
 ## 1. Ticket Status Board (กระดานสถานะงานแยกตามเฟส)
 
 ### 🔹 PHASE 0 — FOUNDATION & TECHNICAL SPIKES (สัปดาห์ 1–2)
-- [ ] **S0.1** Cross-Platform mTLS ECDSA P-256 Spike (`LEAD`) — *In Progress*
+- [ ] **S0.1** Cross-Platform mTLS ECDSA P-256 Spike (`LEAD`) — *In Progress* (ส่วน Dart บน Windows ทดลองแล้วใน PCR-03 — เหลือ macOS/Android/iOS)
 - [ ] **S0.2** Mobile Background Constraints Spike (`MOB`) — *In Progress*
 - [x] **T0.1** Monorepo Architecture Setup & CI/CD Pipeline (`LEAD`) — **DONE** (`4d8270f`)
-- [x] **T0.2** Protocol Package & Data Envelopes (HLC, SAS Engine) (`LEAD`) — **DONE** (`06cada3`)
+- [ ] **T0.2** Protocol Package & Data Envelopes (HLC, SAS Engine) (`LEAD`) — *บางส่วน*: SAS/HLC/Path Sanitizer เสร็จ แต่ยังไม่มี envelope data classes + JSON และ fuzz test 10,000 ครั้งตาม Acceptance Criteria
 - [x] **T0.3** Logging & Telemetry Scrubber Framework (`DESK`) — **DONE**
 - [x] **T0.4** Multi-Device Network Test Harness (`QA`) — **DONE**
 - [x] **T0.5** Formal STRIDE Threat Model & Attack Tree Review (`QA` + `LEAD`) — **DONE** (`06cada3`)
@@ -117,6 +117,7 @@
 | *ตัวอย่าง* | *T1.1* | *`feat/T1.1-mdns-discovery`* | *`DESK` (ธีร์)* | *`READY FOR PR`* | *`[hash]`* | *mDNS Discovery & Browser ผ่านเกณฑ์ค้นหา < 3s, Unit tests pass 12/12* | *T1.3* |
 | 2026-10-13 | **PCR-01** | `main` | `LEAD` (เจ) | `MERGED` | `7ab6ae2` | **Protocol & Architectural Alignment:** ซิงก์ §9.1/§9.2 กับ §5.4 Commit-then-Reveal (`/pair/finalize`, `commitment_B`); ปรับ §18.1 Dual Nonce SAS 160 bytes (`337017`); ลบ `derivePinNonce`; เปลี่ยน header Lamport เป็น `X-DropClip-HLC`; เพิ่ม `ClockDriftException` (60s) และ normalize `d` ใน `hlc.dart`; ป้องกัน Unicode Bidi override และ DOS reserved device names (`CONIN$`, `COM¹`) ใน `path_sanitizer.dart`; เพิ่ม `validateOfferPaths` ป้องกัน collision แบบ case-insensitive; Conformance test vectors ผ่าน 100% | Phase 1 M1 |
 | 2026-10-13 | **PCR-02** | `main` | `LEAD` + `ALL` | `MERGED` | `5bcfe4a` | **Peer Review Systemic Corrections & ISO Realignments:** ปรับปรุง `03-SRS.md` สู่มาตรฐาน ISO/IEC/IEEE 29148 & IEEE 830 (Use Cases UC-01–UC-12, MoSCoW, Rationale, Verification Methods T/I/A/D, ปรับแก้ Data Gathering Plan, RTM ครบ 100%); แก้ไขคะแนน CVSS v3.1 และเพิ่มภัยคุกคาม T-I04, T-D04, T-T04, T-E03, T-R03 ใน `04-THREAT-MODEL.md`; ปลดล็อก Dependency T0.1 และเกลี่ยภาระงาน Phase 2 & 3 (T2.1, T2.3, T2.4, T3.2, T3.4) ใน `02-TICKETS.md`; เพิ่มช่องทาง Signing สำหรับโอเพนซอร์ส/นักศึกษาและแทนที่ด้วย `osv-scanner` ใน `05-RELEASE-AND-UPDATE-PLAN.md`; ซิงก์แบตเตอรี่ (<3%/24h) และ Revocation (<1s/<2s) ใน `00-PROJECT-PROPOSAL-AND-PLAYBOOK.md`; สร้างโค้ดจริงและ Unit Tests สำหรับ `LoggingScrubber` (T0.3) และ `TestCluster` (T0.4) ใน `packages/dropclip_core` ผ่านครบ 100% | Phase 1 M1 |
+| 2026-10-13 | **PCR-03** | `fix/PCR-03-review-followup` | `NET` (ปัน) | `READY FOR PR` | *(commit นี้)* | **Review follow-up:** S0.1 ส่วน Dart/Windows, revoke แบบ quarantine-then-confirm, key แบบ envelope encryption, แก้ native ทั้ง 4 OS; แก้เทสต์ที่ compile ไม่ผ่าน (`CONIN$` interpolation, `TestCluster` เรียก `Hlc.merge`/`increment` ผิด), ลบ field ที่ไม่ใช้, `dart format` ทุก package, bench/fuzzer คืน exit code จริง, pin Melos 6, แก้ test vector ที่ค้าง (`482910`/`579318`/`738586`), CVSS 5 ข้อใหม่, close code revoke, resume §12.4, marker ชื่อผิด; Verification: `dart format`/`analyze --fatal-infos`/`dart test` ผ่านทุก package ด้วย Dart 3.13.5 | Phase 1 M1 |
 | *(เพิ่มต่อที่นี่)*| ... | ... | ... | ... | ... | ... | ... |
 
 ---

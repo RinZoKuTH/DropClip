@@ -12,14 +12,14 @@
 มี 2 รูปแบบที่สามารถเลือกใช้ได้:
 
 ### รูปแบบ ก: สร้างไฟล์แยกตาม Ticket (แนะนำสำหรับ Feature ใหญ่)
-1. คัดลอกเทมเพลตจาก [`docs/worklogs/TEMPLATE.md`](file:///c:/Users/UsEr/Documents/GitHub/DropClip/docs/worklogs/TEMPLATE.md)
+1. คัดลอกเทมเพลตจาก [`docs/worklogs/TEMPLATE.md`](TEMPLATE.md)
 2. บันทึกเป็นไฟล์ใหม่ตามชื่อ Ticket และ Branch เช่น:
    `docs/worklogs/<TICKET_ID>-<branch-slug>.md`
    *(ตัวอย่าง: `docs/worklogs/T1.1-mdns-discovery.md`)*
 3. อัปเดตไฟล์นี้ต่อเนื่องขณะพัฒนาและทดสอบโค้ดใน Branch ของคุณ
 
 ### รูปแบบ ข: บันทึกต่อท้ายในสมุดบันทึกกลาง (`WORK_LOG.md`)
-สำหรับงาน Spike, Task เล็ก, หรือการปรับปรุงเอกสาร สามารถเพิ่มหัวข้อใหม่ต่อท้ายใน [`docs/worklogs/WORK_LOG.md`](file:///c:/Users/UsEr/Documents/GitHub/DropClip/docs/worklogs/WORK_LOG.md) ได้โดยตรงตามโครงสร้างเทมเพลต
+สำหรับงาน Spike, Task เล็ก, หรือการปรับปรุงเอกสาร สามารถเพิ่มหัวข้อใหม่ต่อท้ายใน [`docs/worklogs/WORK_LOG.md`](WORK_LOG.md) ได้โดยตรงตามโครงสร้างเทมเพลต
 
 ---
 

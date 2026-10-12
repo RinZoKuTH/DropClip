@@ -538,9 +538,9 @@ DropClip ได้รับการออกแบบภายใต้สถ�
      - สร้าง `RevocationBroadcastToken` ที่ลงนามด้วย ECDSA P-256 Private Key ของตนเอง และบันทึกลง `revoked_tombstones.json` ถาวร
      - กระจายข้อความ `cluster.revocation` ไปยังทุก Peer ที่ออนไลน์ในวง LAN
   3. *มาตรการป้องกันการเพิกถอนโดยเครื่องที่ถูกขโมย (No Self-Revocation by Proxy):*
-     - โหนดในคลัสเตอร์ที่ได้รับข้อความจะตรวจสอบลายเซ็นดิจิทัล และดำเนินการเพิกถอนเครื่องเป้าหมายออกจาก Trusted Store ของตนเองทันที พร้อมตัดการเชื่อมต่อภายใน **< 2.0 วินาที** ทั่วทั้งเครือข่าย LAN
+     - โหนดในคลัสเตอร์ที่ได้รับข้อความจะตรวจสอบลายเซ็นดิจิทัล แล้ว **Quarantine** เครื่องเป้าหมายทันที (ตัดการเชื่อมต่อและปฏิเสธ connection ใหม่ภายใน **< 2.0 วินาที** ทั่วทั้งเครือข่าย LAN) แต่จะลบออกจาก Trusted Store ถาวรก็ต่อเมื่อผู้ใช้ของเครื่องนั้นกดยืนยัน หากผู้ใช้ปฏิเสธ ระบบคืนสถานะให้เครื่องเป้าหมายและ quarantine ผู้สั่งแทน (PROTO §13.2)
      - **โหนดปลายทางจะไม่ยอมรับคำสั่งเพิกถอนตนเองที่ส่งมาจากโหนดอื่นเด็ดขาด** (หาก `revoked_id == my_id` จะไม่ประมวลผลคำสั่ง) เพื่อป้องกันไม่ให้เครื่องที่ถูกขโมยชิงส่งคำสั่งทำลายโหนดจริงในระบบ
-     - แสดงการแจ้งเตือนระดับระบบ (Interactive System Notification) ให้ผู้ใช้ทราบบนหน้าจอทันทีเมื่อมีอุปกรณ์ในคลัสเตอร์ถูกเพิกถอน พร้อมกล่องยืนยันหากเป็นคำสั่งที่มีผลกระทบ
+     - แสดงการแจ้งเตือนระดับระบบ (Interactive System Notification) พร้อมปุ่ม "ยืนยันเพิกถอน" / "ปฏิเสธ" ทันทีเมื่อมีอุปกรณ์ในคลัสเตอร์ถูกสั่งเพิกถอน
   4. *การซิงก์สถานะกับอุปกรณ์ที่ออฟไลน์ (Handshake Anti-Entropy):*
      - ทุกโหนดแนบ `tombstones_hash` ไปในข้อความ `hello` / `hello.ack`
      - หากตรวจพบว่า Hash ไม่ตรงกัน ให้ส่งข้อความ `revocation.sync` เพื่อแลกเปลี่ยน Tombstones ที่ขาดไปทันที ป้องกันเครื่องที่ถูกเพิกถอนกลับมาเชื่อมต่อกับโหนดที่เคยออฟไลน์
@@ -582,10 +582,10 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 * **NFR-P02 (ความหน่วงการซิงก์คลิปบอร์ดรูปภาพ):** การซิงก์ภาพขนาด 2 MB ต้องสำเร็จภายในเวลา **p95 < 2,500 ms**
 * **NFR-P03 (ความเร็วในการถ่ายโอนไฟล์):** อัตรา Throughput ในการถ่ายโอนไฟล์ขนาดใหญ่ (ทดสอบที่ 4 GB บน Mobile และ 10 GB บน Desktop) ต้องทำได้ **≥ 60% ของค่า Throughput สูงสุดที่วัดได้จาก iperf3 baseline** ภายใต้สภาพแวดล้อม Test Rig มาตรฐาน: เราเตอร์ Wi-Fi 6 (802.11ax) ย่านความถี่ 5 GHz, Channel Width 80 MHz, ค่าความแรงสัญญาณ RSSI ≥ -60 dBm หรือสายเคเบิล 1 Gbps Ethernet LAN
 * **NFR-P04 (เวลาในการค้นพบอุปกรณ์):** ระบบต้องค้นพบอุปกรณ์อื่นในเครือข่ายเดียวกันภายในเวลา **< 3 วินาที** นับจากเปิดโปรแกรม
-* **NFR-P05 (เวลาในการประมวลผลแปลงภาพ):** การแปลงโครงสร้างภาพความละเอียด 4K ระหว่าง OS ต้องใช้เวลา **< 200 ms** โดยกำหนดให้ระบบเรียกใช้ Native Platform Image Codec (macOS/iOS `CoreGraphics` & `ImageIO`, Windows `WIC`, Android `BitmapFactory`) เพื่อใช้ Hardware Acceleration แทนการ Decode บน CPU ของ Dart VM ล้วน
+* **NFR-P05 (เวลาในการประมวลผลแปลงภาพ):** การแปลงโครงสร้างภาพความละเอียด 4K ระหว่าง OS ต้องใช้เวลา **< 200 ms** โดยกำหนดให้ระบบเรียกใช้ Native Platform Image Codec (macOS/iOS `CoreGraphics` & `ImageIO`, Windows `WIC`, Android `BitmapFactory`) เพื่อใช้ Hardware Acceleration แทนการ Decode บน CPU ของ Dart VM ล้วน — ค่า 200 ms เป็นเป้าหมายเบื้องต้นที่ต้องยืนยันด้วย benchmark บนเครื่องอ้างอิงใน T1.8 (p95 จาก 50 ครั้ง) และปรับตามผลวัดผ่าน change request
 
 ### 3.3.2 ด้านการใช้ทรัพยากรระบบ (Resource Utilization Requirements)
-* **NFR-R01 (การควบคุมหน่วยความจำขณะส่งไฟล์และการทดสอบ Soak Test):** ขณะสตรีมไฟล์ขนาดใหญ่ (10 GB บน Desktop และ 4 GB บน Mobile) อัตราการเพิ่มของหน่วยความจำ (Delta RSS) ต้อง **ไม่เกิน 50 MB เหนือ Baseline ปกติ** ตลอดระยะเวลาการส่ง (โดยรวม Peak RAM บน Desktop < 150 MB, และ Peak RAM บน iOS Extension < 30 MB เพื่อป้องกัน Jetsam Kill) และในการทดสอบความคงทนระยะยาว 72 ชั่วโมง (72-hour Soak Test) อัตราการเพิ่มของหน่วยความจำ RSS ต้อง **≤ 5%** หลังจากผ่านพ้นช่วง Warm-up 30 นาทีแรก
+* **NFR-R01 (การควบคุมหน่วยความจำขณะส่งไฟล์และการทดสอบ Soak Test):** ขณะสตรีมไฟล์ขนาดใหญ่ (10 GB บน Desktop และ 4 GB บน Mobile) อัตราการเพิ่มของหน่วยความจำ (Delta RSS) ต้อง **ไม่เกิน 50 MB เหนือ Baseline ปกติ** ตลอดระยะเวลาการส่ง (ไม่กำหนด Peak RSS แบบค่าสัมบูรณ์บน Desktop เพราะ baseline ของ Flutter ขึ้นกับแพลตฟอร์ม — วัด baseline จริงใน T4.1 ก่อน; ส่วน iOS Share Extension กำหนด Peak RAM < 30 MB เพื่อป้องกัน Jetsam Kill) และในการทดสอบความคงทนระยะยาว 72 ชั่วโมง (72-hour Soak Test) อัตราการเพิ่มของหน่วยความจำ RSS ต้อง **≤ 5%** หลังจากผ่านพ้นช่วง Warm-up 30 นาทีแรก
 * **NFR-R02 (การใช้ CPU ในสถานะไม่ได้ใช้งาน):** บน Desktop เมื่อไม่มีการรับส่งข้อมูล อัตราการใช้ CPU เฉลี่ยต้อง **< 0.5%** ตลอดระยะเวลา 8 ชั่วโมง (โดยบน Windows ที่ทำงานแบบ Event-Driven Clipboard Listener ต้องทำได้เฉลี่ย **< 0.2%**)
 * *(หมายเหตุ: ข้อกำหนด NFR-R03A และ NFR-R03B ได้รับการระบุไว้ในตาราง Matrix หัวข้อ 3.3.1)*
 
@@ -596,13 +596,13 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 
 ### 3.3.4 ด้านความปลอดภัยและความเป็นส่วนตัว (Security Requirements)
 * **NFR-S01 (การเข้ารหัสข้อมูล):** การสื่อสารทุกช่องทาง (Control & Data Plane) ต้องใช้โปรโตคอล **TLS 1.3 ล้วน** (บังคับใช้ Cipher Suite สมัยใหม่ เช่น `TLS_AES_128_GCM_SHA256`) และปฏิเสธการลดระดับโปรโตคอล (Downgrade Attack) ทั้งหมด
-* **NFR-S02 (การจัดเก็บกุญแจความปลอดภัย):** Private Key ของอุปกรณ์ต้องถูกจัดเก็บบน Secure Storage ประจำ OS (Keychain, DPAPI, Keystore) และ **ต้องไม่ปรากฏเป็นไฟล์ข้อความธรรมดา (Plaintext) บนดิสก์เด็ดขาด**
+* **NFR-S02 (การจัดเก็บกุญแจความปลอดภัย):** Private Key ของอุปกรณ์ต้องถูกเข้ารหัสด้วย Secure Storage ประจำ OS (Keychain, DPAPI, key ที่อยู่ใน Android Keystore) แบบ envelope encryption (PROTO §4.2 — key ไม่ใช่ hardware-bound เพราะ Dart TLS ต้องได้ key เป็น bytes) และ **ต้องไม่ปรากฏเป็นไฟล์ข้อความธรรมดา (Plaintext) บนดิสก์เด็ดขาด**
 * **NFR-S03 (การป้องกันการเขียนไฟล์อันตราย):** ระบบต้องสามารถป้องกันการโจมตีประเภท Path Traversal, Directory Traversal (`../`), Null Byte Injection, และ Windows Reserved Filenames ได้ **100% จากชุดทดสอบการโจมตี 12 รูปแบบ**
 * **NFR-S04 (การกรองข้อมูลอ่อนไหว):** ระบบต้องกรองและระงับการส่งออกข้อมูลคลิปบอร์ดที่มี **Known OS Sensitive Marker ที่รู้จักได้ 100% ครบทั้ง 5 รูปแบบ** ประกอบด้วย:
   1. macOS: `org.nspasteboard.ConcealedType`
-  2. macOS: `com.agilebits.onepassword` / `org.nspasteboard.TransientType`
+  2. macOS: `org.nspasteboard.TransientType` / `com.agilebits.onepassword`
   3. Windows: `ExcludeClipboardContentFromMonitorProcessing`
-  4. Windows: `CanIncludeInClipboardHistory` (เมื่อมีค่าเป็น 0 / FALSE)
+  4. Windows: `CanIncludeInClipboardHistory` หรือ `CanUploadToCloudClipboard` (เมื่อมีค่าเป็น 0 / FALSE)
   5. Android: `ClipDescription.EXTRA_IS_SENSITIVE` / `Clipboard.EXTRA_IS_SENSITIVE`
   จากการทดสอบคัดลอก 100 ครั้ง จาก Password Managers (1Password, Bitwarden, KeePass, Apple Keychain)
 * **NFR-S05 (เวลาในการบังคับใช้การเพิกถอน):** เมื่อกดเพิกถอนอุปกรณ์ ระบบต้องทำการตัดการเชื่อมต่อและเพิกถอนสิทธิ์บนเครื่องที่สั่ง **ภายในเวลา < 1.0 วินาที** และโหนดที่ออนไลน์ทั้งหมดในคลัสเตอร์ LAN ต้องดำเนินการเพิกถอนเสร็จสิ้น **ภายในเวลา < 2.0 วินาที**
@@ -688,7 +688,7 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 | **P-01** ขั้นตอนซ้ำซ้อนสูง | **UR-01** ความสะดวกคลิปบอร์ด<br>**UR-06** ทำงานเงียบสงบ | **SF-03** Real-Time Clipboard Sync | **FR-03A** Tier 1 Full Passive<br>**FR-03B** Tier 2 Assisted Sync<br>**FR-03C** Tier 3 Manual-Assist<br>**FR-04** Loop Prevention & HLC | **NFR-P01A** Latency p95 < 1,000ms<br>**NFR-P01B** Android In < 1,200ms<br>**NFR-P01C** Android Out < 800ms<br>**NFR-P01D** iOS Out < 1,500ms<br>**NFR-U01** ลดขั้นตอน $\ge 70\%$<br>**NFR-U03** ซ่อนตัวลง Tray/Menubar | **T, D** |
 | **P-02** คอขวดความเร็วอินเทอร์เน็ต | **UR-02** ความเร็วส่งไฟล์<br>**UR-10** ส่งไฟล์ต่อเนื่องเมื่อหลุด | **SF-06** Streaming Transfer Engine | **FR-07** Streaming File Sender<br>**FR-08** File Receiver & Quarantine<br>**FR-09** Resumable Transfer (64 MiB) | **NFR-P03** Throughput $\ge 60\%$ iperf3<br>**NFR-R01** Delta RAM $\le 50$ MB<br>**NFR-RE01** Checksum ตรง 100% | **T, D** |
 | **P-03** คุณภาพไฟล์ลดทอน | **UR-03** คุณภาพระดับต้นฉบับ 100% | **SF-04** Image Normalizer<br>**SF-06** Streaming Transfer Engine | **FR-06** Image Normalization<br>**FR-07** Streaming File Sender<br>**FR-08** File Receiver & Checksum | **NFR-P05** แปลงภาพ 4K < 200 ms<br>**NFR-RE01** SHA-256 ตรง 100% | **T, D** |
-| **P-04** ความเสี่ยงข้อมูลรั่วไหล | **UR-04** ควบคุมความเป็นส่วนตัว<br>**UR-08** ปลอดภัยจากรหัสผ่านรั่ว | **SF-02** Cryptographic Pairing<br>**SF-05** Sensitive Content Filter | **FR-02** Pairing (Commit-Reveal SAS)<br>**FR-05** Sensitive Filter & TTL | **NFR-S01** TLS 1.3 ล้วน<br>**NFR-S02** Hardware Keystore<br>**NFR-S04** กรอง Marker ลับ 5 แบบ 100% | **T, I** |
+| **P-04** ความเสี่ยงข้อมูลรั่วไหล | **UR-04** ควบคุมความเป็นส่วนตัว<br>**UR-08** ปลอดภัยจากรหัสผ่านรั่ว | **SF-02** Cryptographic Pairing<br>**SF-05** Sensitive Content Filter | **FR-02** Pairing (Commit-Reveal SAS)<br>**FR-05** Sensitive Filter & TTL | **NFR-S01** TLS 1.3 ล้วน<br>**NFR-S02** OS Secure Storage<br>**NFR-S04** กรอง Marker ลับ 5 แบบ 100% | **T, I** |
 | **P-05** ซอฟต์แวร์เดิม Friction สูง | **UR-05** รับไฟล์ลดแรงเสียดทาน<br>**UR-06** ทำงานไม่รบกวน<br>**UR-07** ตั้งค่าง่าย ไม่ต้องมีบัญชี<br>**UR-09** ค้นหาอุปกรณ์อัตโนมัติ | **SF-01** Zero-Config Discovery<br>**SF-07** Trusted File Acceptance | **FR-01** Zero-Config Discovery<br>**FR-08** File Receiver & Quarantine<br>**FR-10** Connection & Reconnect<br>**FR-12** Auto-Start Management | **NFR-P04** Discovery < 3 วินาที<br>**NFR-R02** CPU Idle < 0.5%<br>**NFR-RE03** Zero Socket Leak<br>**NFR-U02** SUS Score $\ge 75$ | **T, D, I** |
 | **P-06** ปัญหาภาพข้าม OS | **UR-03** ภาพคงคุณภาพและมิติสี | **SF-04** Cross-OS Image Normalizer | **FR-06** Image Normalization | **NFR-P02** Latency ภาพ < 2.5s<br>**NFR-P05** แปลงภาพ 4K < 200 ms | **T, D** |
 | *(การจัดการคลัสเตอร์และความมั่นคง)* | **UR-11** การจัดการและเพิกถอนสิทธิ์ | **SF-08** Trusted Device Revocation | **FR-11** Signed Cluster Revocation | **NFR-S03** บล็อก Path Traversal 12 แบบ<br>**NFR-S05** เพิกถอนในเครื่อง < 1s, คลัสเตอร์ < 2s | **T, I** |

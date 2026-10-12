@@ -4,7 +4,7 @@
 |---|---|
 | **รหัสเอกสาร** | RELEASE-DC-V1.0 |
 | **Document Version** | 1.0 — Realigned to SRS-DC-V1.2 & PROTO-DC-V2.0 |
-| **สถานะ** | Approved Release Management Baseline |
+| **สถานะ** | Draft / Under Review (ทีมจัดทำ — ยังไม่ผ่านการอนุมัติจากผู้ประเมิน) |
 | **Release Manager & Lead** | นายธนกฤต บุญญาวรกุล (เจ) — Team Lead & Architect |
 | **Mobile Release Engineer** | นายเกื้ออนันต์ พวงนิลน้อย (เกื้อ) — Mobile Client Developer |
 | **QA & Verification Lead** | นายปรมินทร์ มุขอาษา (ตามด) — QA & Performance Engineer |
@@ -130,7 +130,7 @@ flowchart TD
 เพื่อรับประกันว่าการ Roll-Forward หรือการสลับเวอร์ชันจะไม่ทำลายข้อมูลผู้ใช้:
 - ไฟล์บันทึกข้อมูลถาวรทั้งหมด (`trusted_devices.json.enc`, `revoked_tombstones.json`, `state.json`) ต้องมีฟิลด์ `schema_version: 1`
 - การอัปเกรดต้องมีตัวแปลงข้อมูล (Migration Handler) ที่ปลอดภัย และรักษาความเข้ากันได้แบบย้อนหลัง (Backward Compatibility)
-- **Zero-Loss Guarantee:** ห้ามลบ Trusted Device Store หรือ Hardware Keystore เด็ดขาด ผู้ใช้ไม่ต้องจับคู่อุปกรณ์ใหม่หลังการอัปเดต
+- **Zero-Loss Guarantee:** ห้ามลบ Trusted Device Store หรือ key ใน OS Secure Storage เด็ดขาด ผู้ใช้ไม่ต้องจับคู่อุปกรณ์ใหม่หลังการอัปเดต
 
 ---
 
@@ -155,7 +155,7 @@ flowchart TD
 เนื่องจาก DropClip ยึดถือหลัก Zero-Cloud จึงไม่มีระบบ Crash Analytics หรือ Telemetry อัตโนมัติส่งกลับเซิร์ฟเวอร์ การวิเคราะห์และแก้ไขปัญหา P0 จากภาคสนามจึงอาศัยกลไก:
 - **User-Initiated Export:** ผู้ใช้สามารถกดปุ่ม "Export Diagnostic Bundle" ใน Settings หน้าจอแอปพลิเคชัน
 - **Scrubbed Data Only:** บันทึกเฉพาะ Log ที่ผ่าน Scrubber แล้ว (`app.log`), ข้อมูลเวอร์ชันระบบปฏิบัติการ, สถานะเชื่อมต่อ mDNS/TCP, และ Masked Local Subnet โดย**ตัด Private Key, Certificate, ข้อมูลคลิปบอร์ด และเนื้อหาไฟล์ออก 100%**
-- ไฟล์จะถูกส่งออกเป็น `.zip` ให้ผู้ใช้แนบส่งทาง `security@dropclip.net` หรือ GitHub Issue ได้อย่างปลอดภัย
+- ไฟล์จะถูกส่งออกเป็น `.zip` ให้ผู้ใช้แนบส่งทาง GitHub Security Advisories (ถ้าเกี่ยวกับช่องโหว่) หรือ GitHub Issue ได้อย่างปลอดภัย
 
 ---
 
@@ -171,7 +171,6 @@ flowchart TD
 ## 7. Vulnerability Disclosure & Coordinated Release
 
 DropClip ปฏิบัติตามมาตรฐาน RFC 9116 ผ่าน `/.well-known/security.txt` และช่องทางรายงานแบบลับของ GitHub:
-- **Primary Intake Channel (Open-Source Project):** GitHub Security Advisories Private Vulnerability Reporting (`https://github.com/DropClip/DropClip/security/advisories`) สำหรับรับแจ้งช่องโหว่จากภายนอกอย่างปลอดภัยโดยไม่เปิดเผยสู่สาธารณะก่อนเวลา
-- **Security Contact:** `mailto:security@dropclip.net` (ช่องทางอีเมลหลักเมื่อพร้อมใช้งานโดเมนการผลิต)
-- **PGP Encryption Key:** `https://dropclip.net/pgp-key.asc`
+- **Primary Intake Channel (Open-Source Project):** GitHub Security Advisories Private Vulnerability Reporting (`https://github.com/nCotista/DropClip/security/advisories`) สำหรับรับแจ้งช่องโหว่จากภายนอกอย่างปลอดภัยโดยไม่เปิดเผยสู่สาธารณะก่อนเวลา
+- **Security Contact:** ยังไม่มีโดเมน/อีเมลของโครงการ — ใช้ GHSA เป็นช่องทางเดียวจนกว่าจะจดโดเมนได้
 - **Coordinated Vulnerability Disclosure (CVD):** ให้เวลาทีมงาน 7 วันในการพัฒนาและปล่อย Patch ผ่าน Roll-Forward ก่อนการเปิดเผยรายละเอียดสู่สาธารณะ

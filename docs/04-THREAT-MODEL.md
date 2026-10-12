@@ -4,7 +4,7 @@
 |---|---|
 | **รหัสเอกสาร** | THREAT-DC-V1.0 |
 | **Document Version** | 1.0 — Realigned to SRS-DC-V1.2 & PROTO-DC-V2.0 |
-| **สถานะ** | Approved Security Architecture Baseline |
+| **สถานะ** | Draft / Under Review (ทีมจัดทำ — ยังไม่ผ่านการอนุมัติจากผู้ประเมิน) |
 | **Lead Security Architect** | นายธนกฤต บุญญาวรกุล (เจ) — Team Lead & System Architect |
 | **QA & Pentest Lead** | นายปรมินทร์ มุขอาษา (ตามด) — QA & Security Engineer |
 | **มาตรฐานที่อ้างอิง** | Microsoft STRIDE, OWASP Top 10, NIST SP 800-30 Rev 1, CVSS v3.1 |
@@ -32,12 +32,12 @@
 
 - **TB-1: Network / Transport Boundary:** ขอบเขตระหว่าง Network Interface (Wi-Fi/LAN) กับ Transport Engine — สภาพแวดล้อมเครือข่ายถือเป็น **Untrusted** (อาจมีผู้โจมตีทำ ARP Spoofing หรือ Packet Sniffing ได้ตลอดเวลา)
 - **TB-2: Inter-Process / Platform Channel Boundary:** ขอบเขตระหว่าง Flutter Dart VM กับ Native Code (Swift / C++ / Kotlin) หรือ App Extension (iOS Share Sheet Extension)
-- **TB-3: Host Storage & Hardware Keystore Boundary:** ขอบเขตระหว่าง Local File System กับ Hardware-backed Key Storage (Apple Keychain / Windows DPAPI / Android Keystore)
+- **TB-3: Host Storage & OS Secure Storage Boundary:** ขอบเขตระหว่าง Local File System กับ OS Secure Storage (Apple Keychain / Windows DPAPI / Android Keystore wrapping key) — private key ไม่ใช่ hardware-bound (PROTO §4.2)
 
 ```mermaid
 flowchart TB
     subgraph Host_OS["Device Host OS (Trusted Boundary TB-3)"]
-        Keystore["Hardware Keystore / Secure Enclave\n(ECDSA P-256 Private Key)"]
+        Keystore["OS Secure Storage\n(Wrapped ECDSA P-256 Private Key)"]
         LocalStorage["Local Storage\n(trusted_devices.json.enc / state.json)"]
         OSClipboard["OS System Clipboard\n(NSPasteboard / Win32 / ClipManager)"]
     end
@@ -107,7 +107,7 @@ flowchart TB
 |:---:|---|---|---|---|:---:|---|
 | **T-S01** | Rogue mDNS Peer Spoofing | ผู้โจมตีประกาศ `_dropclip._tcp.local` ปลอม เพื่อล่อให้เหยื่อส่งข้อมูลหา | Discovery Engine | ปานกลาง | Medium | **Fingerprint Pinning (§4.4):** แอปปฏิเสธการเชื่อมต่อทุกชนิดจากโหนดที่ Fingerprint ไม่อยู่ใน Trusted Store ด้วย `403 E_NOT_PAIRED` |
 | **T-S02** | Active MITM on Pairing (SAS Collision & PIN Offline Attack) | ผู้โจมตีอยู่คั่นกลางขณะ Pair ดักจับแพ็กเก็ตเพื่อถอดรหัส PIN หรือสุ่ม Keypair ให้ SAS ชนกัน | Pairing Protocol | วิกฤติ | **Medium (CVSS 6.4)** | **Zero PIN on Wire & Commit-then-Reveal SAS (ADR-009):** (1) ห้ามส่ง PIN หรือ pin_nonce บนสายเด็ดขาด ตัดความเสี่ยง Offline Brute-force $10^6$, (2) Client ส่ง $C_B$ ก่อน Host ส่ง $N_A$, (3) PIN นำมาใช้เป็น OOB Salt คำนวณ SAS ในเครื่องเท่านั้น ผู้โจมตีไม่ทราบ PIN จึงไม่สามารถคำนวณ SAS ให้ตรงกันได้ ($P = 10^{-6}$) |
-| **T-S03** | Compromised / Stolen Peer Malicious Revocation | เครื่องที่ถูกขโมยใช้ Private Key ของตนเองชิงส่งคำสั่ง Revoke โหนดจริงทั้งหมดในคลัสเตอร์ | Revocation Engine | สูง | **High (CVSS 7.3)** | **No Self-Revocation by Proxy & Interactive Alert (§13.2):** โหนดที่ได้รับคำสั่ง Revoke จะไม่ยอมลบตนเองออกจากระบบเด็ดขาดหาก `revoked_id == my_id` พร้อมแสดง System Notification แจ้งเตือนผู้ใช้ทันทีเมื่อมีโหนดอื่นถูกเพิกถอน |
+| **T-S03** | Compromised / Stolen Peer Malicious Revocation | เครื่องที่ถูกขโมยใช้ Private Key ของตนเองชิงส่งคำสั่ง Revoke โหนดจริงทั้งหมดในคลัสเตอร์ | Revocation Engine | สูง | **High (CVSS 7.3)** | **No Self-Revocation by Proxy & Quarantine-then-Confirm (§13.2):** โหนดที่ได้รับคำสั่ง Revoke จะไม่ยอมลบตนเองหาก `revoked_id == my_id`; คำสั่ง revoke เครื่องอื่นทำได้แค่ quarantine (ตัดการเชื่อมต่อชั่วคราว) จนกว่าผู้ใช้ของเครื่องนั้นกดยืนยัน — ถ้าผู้ใช้ปฏิเสธ ผู้สั่งจะถูก quarantine แทน (ความเสี่ยงคงเหลือ: DoS ชั่วคราว) |
 | **T-S04** | Offline Peer Reconnection after Cluster Revocation | โหนดออฟไลน์ขณะมีการสั่ง Revoke เมื่อกลับมาออนไลน์อาจถูกเครื่องที่ถูกเพิกถอนเชื่อมต่อเข้ามาได้ | Handshake Engine | สูง | **High (CVSS 8.1)** | **Persistent Tombstones & Handshake Anti-Entropy (§13.2):** ทุกโหนดเก็บบันทึก `revoked_tombstones.json` ถาวร และส่ง `tombstones_hash` แลกเปลี่ยนกันทุกครั้งที่ทำ `hello` หากพบว่าขาด ให้ดึงข้อมูลผ่าน `revocation.sync` ทันที |
 
 ---
@@ -119,7 +119,7 @@ flowchart TB
 | **T-T01** | Wire Payload Tampering | ผู้โจมตีแก้ไขข้อมูลคลิปบอร์ดหรือไฟล์ขณะส่งผ่านสาย LAN | Transport Plane | สูง | High | **TLS 1.3 AEAD:** ข้อมูลทุกไบต์ถูกเข้ารหัสและทำ Authenticated Encryption (`AES-128-GCM` / `CHACHA20-POLY1305`) |
 | **T-T02** | Path Traversal File Overwrite (Zip-Slip / Directory Traversal) | ผู้โจมตีส่ง `file.offer` ที่มี `path: "../../../Windows/System32/evil.dll"` หรือ `C:/` เพื่อเขียนทับไฟล์ระบบ | File Transfer Engine | หายนะ | **Critical (CVSS 9.6)** | **Strict Path Sanitizer (NFR-S03, §17.3):** บล็อก 12 Attack Vectors (V1–V12), บังคับ Relative Path, ห้าม Backslash, ลบ Drive Letter, และ Canonicalize ใต้ Destination Sandbox เท่านั้น |
 | **T-T03** | Partial Chunk Corruption in Resumable Transfer | การสตรีมหลุดกลางคัน ผู้โจมตีฉีด Chunk ปลอมเข้า `.part` file | Resumable Transfer | ปานกลาง | Medium | **64 MiB Checkpoint Hashing (§12.4):** ทุก 64 MiB คำนวณ SHA-256 บันทึกใน Sidecar `.part.json` และ Final Hash Checksum ก่อนเปลี่ยนชื่อไฟล์จริง |
-| **T-T04** | Co-located Clipboard Hijack & Pastejacking | มัลแวร์บนเครื่องเหยื่อดักฟังและพยายามดัดแปลงข้อมูลคลิปบอร์ดระหว่างซิงก์ | OS Clipboard Layer | ปานกลาง | Medium (CVSS 5.5) | **Suppression Window & User Feedback HUD:** ตรวจจับ Hash การเขียนของตนเอง, แนะนำผู้ใช้ตรวจดูการแจ้งเตือน HUD เมื่อมีข้อมูลเข้ามา |
+| **T-T04** | Co-located Clipboard Hijack & Pastejacking | มัลแวร์บนเครื่องเหยื่อดักฟังและพยายามดัดแปลงข้อมูลคลิปบอร์ดระหว่างซิงก์ | OS Clipboard Layer | ปานกลาง | Medium (CVSS 4.4) | **Suppression Window & User Feedback HUD:** ตรวจจับ Hash การเขียนของตนเอง, แนะนำผู้ใช้ตรวจดูการแจ้งเตือน HUD เมื่อมีข้อมูลเข้ามา |
 
 ---
 
@@ -129,7 +129,7 @@ flowchart TB
 |:---:|---|---|---|---|:---:|---|
 | **T-R01** | Forged Cluster Revocation Message | ผู้โจมตีฉีดคำสั่งเพิกถอนโหนดอื่นในคลัสเตอร์ เพื่อทำลายการเชื่อมต่อของระบบ | Control Plane | สูง | **High (CVSS 8.1)** | **Signed Revocation Token (§13.2):** คำสั่ง `cluster.revocation` ต้องแนบ `RevocationBroadcastToken` ที่ลงนามด้วย ECDSA P-256 ของโหนดต้นทางที่ได้รับความเชื่อถือเท่านั้น |
 | **T-R02** | Stale Clock History Manipulation | ผู้โจมตีส่ง event เก่ากลับมาเพื่อทำให้ Sync เกิดความสับสน | Sync Engine | ต่ำ | Low | **Hybrid Logical Clock & Message Deduplication (§10):** บันทึก `_seenMsgIds` LRU(200) และ LWW rule |
-| **T-R03** | Stale Revocation Token Replay / Clock Skew | ผู้โจมตีพยายามส่งข้อความ Handshake เก่าเพื่อคืนชีพโหนดที่เคยเพิกถอน | Handshake / Storage | ปานกลาง | Medium (CVSS 5.8) | **Monotonic HLC & Append-only Tombstones:** บันทึกเวลาเพิกถอนด้วย HLC และแลกเปลี่ยน Anti-Entropy Tombstone Hash ปฏิเสธการคืนชีพโหนดที่เคยเพิกถอน |
+| **T-R03** | Stale Revocation Token Replay / Clock Skew | ผู้โจมตีพยายามส่งข้อความ Handshake เก่าเพื่อคืนชีพโหนดที่เคยเพิกถอน | Handshake / Storage | ปานกลาง | Medium (CVSS 5.4) | **Monotonic HLC & Append-only Tombstones:** บันทึกเวลาเพิกถอนด้วย HLC และแลกเปลี่ยน Anti-Entropy Tombstone Hash ปฏิเสธการคืนชีพโหนดที่เคยเพิกถอน |
 
 ---
 
@@ -138,9 +138,9 @@ flowchart TB
 | Threat ID | Threat Scenario | Attack Vector | Component | Impact | Severity | Mitigation Strategy |
 |:---:|---|---|---|---|:---:|---|
 | **T-I01** | Password Manager Clipboard Leakage | ผู้ใช้ Copy รหัสผ่านจาก 1Password, Bitwarden แล้วระบบเผลอซิงก์รหัสผ่านออกนอกเครื่อง | Clipboard Watcher | ปานกลาง | **Medium (CVSS 6.2)** | **100% Recognized Sensitive Marker Filtering (NFR-S04, §10.4):** Native hooks ดักจับ `org.nspasteboard.ConcealedType`, `org.nspasteboard.TransientType`, `ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory`, `ClipDescription.EXTRA_IS_SENSITIVE` สกัดกั้นก่อนอ่าน payload 100% |
-| **T-I02** | Private Key Exfiltration from Disk | มัลแวร์ในเครื่องพยายามอ่าน Private Key จาก App Directory | Storage Layer | วิกฤติ | **High (CVSS 7.8)** | **OS Secure Hardware Storage (NFR-S02, §4.2):** Private key เก็บใน macOS Keychain, Windows DPAPI/CNG, Android Keystore โดยไม่มี Plaintext บนดิสก์เด็ดขาด |
+| **T-I02** | Private Key Exfiltration from Disk | มัลแวร์ในเครื่องพยายามอ่าน Private Key จาก App Directory | Storage Layer | วิกฤติ | **High (CVSS 7.8)** | **OS Secure Storage + Envelope Encryption (NFR-S02, §4.2):** Private key เข้ารหัสด้วย macOS Keychain, Windows DPAPI, wrapping key ใน Android Keystore โดยไม่มี Plaintext บนดิสก์ (ความเสี่ยงคงเหลือ: key อยู่ใน RAM ขณะใช้งาน และมัลแวร์ที่รันเป็น user เดียวกันอาจเรียก DPAPI/Keychain ได้) |
 | **T-I03** | Sensitive Data Leakage in Logs / Crash Dumps | บันทึก Log หรือ Error dump ติดข้อมูลคลิปบอร์ดหรือ Private key | Telemetry / Logger | สูง | High | **Structured Logging Scrubber (NFR-S02, T0.3):** กลไก Scrubber ตรวจสอบและตัด Private Key, Password, และ Full Clipboard Payload ออกจาก Log 100% |
-| **T-I04** | mDNS Privacy Surveillance & Host Tracking | ผู้ไม่หวังดีเก็บสถิติแพ็กเก็ต mDNS เพื่อติดตามประวัติการออนไลน์และระบุตัวตนผู้ใช้ข้ามเครือข่าย | Discovery Engine | ต่ำ | Low (CVSS 3.5) | **Privacy Friendly Discovery:** ผู้ใช้สามารถเปลี่ยนชื่ออุปกรณ์ Device Name เป็นนามแฝง (Alias) ได้ และระบบไม่กระจายข้อมูลส่วนบุคคลอื่นใน TXT Record |
+| **T-I04** | mDNS Privacy Surveillance & Host Tracking | ผู้ไม่หวังดีเก็บสถิติแพ็กเก็ต mDNS เพื่อติดตามประวัติการออนไลน์และระบุตัวตนผู้ใช้ข้ามเครือข่าย | Discovery Engine | ต่ำ | Medium (CVSS 4.3) | **Privacy Friendly Discovery:** ผู้ใช้สามารถเปลี่ยนชื่ออุปกรณ์ Device Name เป็นนามแฝง (Alias) ได้ และระบบไม่กระจายข้อมูลส่วนบุคคลอื่นใน TXT Record |
 
 ---
 
@@ -151,7 +151,7 @@ flowchart TB
 | **T-D01** | Memory Flooding via Giant Clipboard Payload | โหนดส่งข้อความคลิปบอร์ดขนาด 500 MB เข้ามาทาง WebSocket Control Plane | Control Plane | สูง | High | **Explicit Size Quotas (§7.1, §10.2):** Control Plane WS Frame จำกัดสูงสุด **64 KiB**; ข้อความแบบ Inline จำกัดสูงสุด **32 KiB**; ข้อมูลภาพ/ข้อความขนาดใหญ่บน Data Plane จำกัดสูงสุด **32 MiB** หากเกินปฏิเสธด้วย `E_PAYLOAD_TOO_LARGE` ทันที |
 | **T-D02** | Disk Exhaustion Attack via Unsolicited Files | โหนดส่งไฟล์ขนาดใหญ่มาเต็มดิสก์ของเหยื่อ | File Receiver | สูง | High | **Explicit User Acceptance & Pre-flight Disk Check (FR-08):** ต้องกดยอมรับ `file.offer` (ยกเว้น Auto-accept ใน Trusted Zone) พร้อมตรวจพื้นที่ดิสก์ก่อนรับ หากไม่พอส่ง `507 E_DISK_FULL` |
 | **T-D03** | Future Clock Drift Attack (LWW Hijack) | โหนดตั้งเวลาล่วงหน้าไปปี 2035 เพื่อให้ข้อมูลของตนชนะ LWW ตลอดกาล | HLC Engine | สูง | High | **Bounded Clock Drift Enforcement (§10.3):** หาก remote HLC $l - \text{nowMs} > 60,000\text{ ms}$ (60 วินาที) ระบบปฏิเสธข้อความทันที (`clipboard.clock_drift_exceeded`) |
-| **T-D04** | Pairing Endpoint Exhaustion & Handshake DoS | ผู้โจมตียิงคำขอ `/api/v1/pair` ถี่ ๆ เพื่อผลาญ CPU ในการสร้าง Ephemeral Key | Pairing Server | ปานกลาง | Medium (CVSS 5.3) | **Pairing Rate Limiting (§5.4):** จำกัดไม่เกิน 5 ครั้ง/นาที/IP และระงับ 5 นาทีหากผิดพลาด 3 ครั้งติดต่อกัน |
+| **T-D04** | Pairing Endpoint Exhaustion & Handshake DoS | ผู้โจมตียิงคำขอ `/api/v1/pair` ถี่ ๆ เพื่อผลาญ CPU ในการสร้าง Ephemeral Key | Pairing Server | ปานกลาง | Medium (CVSS 4.3) | **Pairing Rate Limiting (§5.4):** จำกัดไม่เกิน 5 ครั้ง/นาที/IP และระงับ 5 นาทีหากผิดพลาด 3 ครั้งติดต่อกัน |
 
 ---
 
@@ -161,7 +161,7 @@ flowchart TB
 |:---:|---|---|---|---|:---:|---|
 | **T-E01** | Arbitrary Code Execution via Transferred File | ผู้ส่งส่งไฟล์ `.exe`, `.sh`, `.app` มา แล้วระบบเผลอรันไฟล์นั้นอัตโนมัติ | Desktop Inbound Engine | หายนะ | **Critical (CVSS 8.0)** | **No Auto-Execution & macOS Quarantine (NFR-S03, §17.2):** ห้ามรันไฟล์ที่รับมาอัตโนมัติเด็ดขาด และไฟล์ที่ลงบน macOS ต้องแนบ `com.apple.quarantine` เสมอ |
 | **T-E02** | iOS Jetsam Limit DoS in Share Extension | การส่งไฟล์ขนาดใหญ่ใน Share Extension ทำให้แอปโดน OS ฆ่า | iOS Native Extension | ปานกลาง | Medium | **Background URLSession (ADR-007, T3.2):** สตรีมผ่าน background daemon ของ OS รักษาระดับ Peak RAM < 30 MB |
-| **T-E03** | Malicious Rogue Peer File Drop via Auto-Accept Abuse | เครื่องที่เคยจับคู่ถูกเจาะระบบแล้วส่งไฟล์อันตรายเข้ามาอย่างเงียบ ๆ | File Receiver | สูง | High (CVSS 7.5) | **Safe Default (Auto-Accept Disabled) & Quarantine:** ค่าเริ่มต้นของการรับไฟล์อัตโนมัติกำหนดเป็น ปิด (Disabled) เสมอ, แสดง Notification แจ้งเตือนผู้ใช้ และแนบ OS Quarantine/MotW |
+| **T-E03** | Malicious Rogue Peer File Drop via Auto-Accept Abuse | เครื่องที่เคยจับคู่ถูกเจาะระบบแล้วส่งไฟล์อันตรายเข้ามาอย่างเงียบ ๆ | File Receiver | สูง | High (CVSS 7.4) | **Safe Default (Auto-Accept Disabled) & Quarantine:** ค่าเริ่มต้นของการรับไฟล์อัตโนมัติกำหนดเป็น ปิด (Disabled) เสมอ, แสดง Notification แจ้งเตือนผู้ใช้ และแนบ OS Quarantine/MotW |
 
 ---
 
@@ -241,15 +241,15 @@ graph TD
 | **T-R01** | Unauthenticated Revocation Spoofing | `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:H` | **8.1** | **High** | Mitigated |
 | **T-S04** | Offline Peer Stale Revocation Replay | `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:H` | **8.1** | **High** | Mitigated |
 | **T-E01** | Arbitrary Code Execution on Receipt | `CVSS:3.1/AV:A/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H` | **8.0** | **High** | Mitigated |
-| **T-E03** | Rogue Peer Auto-Accept Abuse | `CVSS:3.1/AV:A/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:H` | **7.5** | **High** | Mitigated |
-| **T-S03** | Stolen Peer Malicious Self-Revocation | `CVSS:3.1/AV:A/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H` | **7.3** | **High** | Mitigated |
+| **T-E03** | Rogue Peer Auto-Accept Abuse | `CVSS:3.1/AV:A/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:H` | **7.4** | **High** | Mitigated |
+| **T-S03** | Stolen Peer Malicious Self-Revocation | `CVSS:3.1/AV:A/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H` | **7.3** | **High** | Mitigated (residual: DoS ชั่วคราวจนผู้ใช้กดปฏิเสธ) |
 | **T-D03** | Clock Drift Hijack of LWW | `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:H` | **7.1** | **High** | Mitigated |
 | **T-S02** | Active MITM on Pairing (Pre-ADR-009) | `CVSS:3.1/AV:A/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:N` | **6.4** | **Medium** | Mitigated |
 | **T-I01** | Password Manager Clipboard Leak | `CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N` | **6.2** | **Medium** | Mitigated |
-| **T-R03** | Stale Revocation Token Replay / Skew | `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L` | **5.8** | **Medium** | Mitigated |
-| **T-T04** | Local Clipboard Hijack / Pastejacking | `CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N` | **5.5** | **Medium** | Mitigated |
-| **T-D04** | Pairing Handshake DoS / Exhaustion | `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L` | **5.3** | **Medium** | Mitigated |
-| **T-I04** | mDNS Surveillance / Host Tracking | `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N` | **3.5** | **Low** | Mitigated |
+| **T-R03** | Stale Revocation Token Replay / Skew | `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L` | **5.4** | **Medium** | Mitigated |
+| **T-T04** | Local Clipboard Hijack / Pastejacking | `CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N` | **4.4** | **Medium** | Mitigated |
+| **T-D04** | Pairing Handshake DoS / Exhaustion | `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L` | **4.3** | **Medium** | Mitigated |
+| **T-I04** | mDNS Surveillance / Host Tracking | `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N` | **4.3** | **Medium** | Partially Mitigated (`fp` คงที่ใน mDNS TXT ยังใช้ติดตามเครื่องได้) |
 
 ---
 
@@ -266,18 +266,16 @@ graph TD
 DropClip ยึดถือนโยบาย **Coordinated Vulnerability Disclosure (CVD)** อย่างเคร่งครัด เพื่อสร้างความเชื่อมั่นสูงสุดแก่ผู้ใช้งานและชุมชน Open-Source Security:
 
 ### 9.1 RFC 9116 `security.txt` Specification
-ไฟล์ `security.txt` จะถูกเผยแพร่ที่ `https://dropclip.net/.well-known/security.txt` และบรรจุใน repository (`/.well-known/security.txt`):
+ไฟล์ `security.txt` บรรจุใน repository (`/.well-known/security.txt`) และชี้ไปที่ GitHub Security Advisories เพราะโครงการยังไม่มีโดเมนจริง:
 
 ```text
-Contact: mailto:security@dropclip.net
-Expires: 2027-12-31T23:59:59.000Z
-Encryption: https://dropclip.net/pgp-key.asc
+Contact: https://github.com/nCotista/DropClip/security/advisories/new
+Expires: 2027-10-12T00:00:00.000Z
 Preferred-Languages: th, en
-Canonical: https://dropclip.net/.well-known/security.txt
-Policy: https://dropclip.net/security-policy
+Policy: https://github.com/nCotista/DropClip/security/policy
 ```
 
-> **หมายเหตุสำหรับการพัฒนาและโครงงานวิจัย:** โดเมน `dropclip.net` เป็นโดเมนเป้าหมายที่สงวนไว้สำหรับการเผยแพร่จริง ในระหว่างช่วงการพัฒนาและทดสอบโอเพนซอร์ส ช่องทางการรายงานช่องโหว่ความปลอดภัยหลักของโครงการคือ **GitHub Security Advisories (GHSA)** ที่ `https://github.com/DropClip/DropClip/security/advisories` ควบคู่กับไฟล์ `security.txt` ในรากของคลังรหัสต้นฉบับ
+> **หมายเหตุ:** โครงการยังไม่มีโดเมนของตนเอง ช่องทางรายงานช่องโหว่หลักคือ **GitHub Security Advisories (GHSA)** ที่ `https://github.com/nCotista/DropClip/security/advisories` (ต้องเปิด Private Vulnerability Reporting ใน Settings ของ repo) — ถ้าภายหลังจดโดเมนได้ ให้เพิ่ม `Canonical` และอีเมลผ่าน change request
 
 ### 9.2 Incident Response & Triage SLA
 - **P0 Critical Triage (Remote Code Execution, Wire Eavesdropping, Auth Bypass):** ยืนยันและจัดลำดับความสำคัญภายใน **24 ชั่วโมง** พร้อมกำหนด Lead Security Architect รับผิดชอบ
