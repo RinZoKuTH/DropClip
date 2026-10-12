@@ -21,5 +21,8 @@ _สรุปการเปลี่ยนแปลงที่ทำใน PR 
 - [ ] **No Plaintext Secrets:** ไม่มีการบันทึก Private Key, Credential, หรือ Secret ลงโค้ด/ดิสก์ (NFR-S02)
 - [ ] **Memory Rule:** ไม่พบ `readAsBytes()` สำหรับงานประมวลผลไฟล์ (บังคับ Streaming)
 - [ ] **Platform Native Honesty:** ปฏิบัติตาม Capability Tiers อย่างเคร่งครัด
+- [ ] **Work Log:** บันทึกประวัติการทำงานลงใน `docs/worklogs/` เรียบร้อยแล้ว
+- [ ] **Task Update File:** อัปเดตสถานะและบันทึกแถวใน `docs/TASK-PROGRESS-AND-UPDATES.md` (หรือ `UPDATES.md`) แล้ว
 - [ ] **Documentation:** อัปเดตเอกสาร API และคู่มือที่เกี่ยวข้องแล้ว
+
 

@@ -23,15 +23,20 @@
    - Feature:  git checkout -b feat/<TICKET_ID>-<slug>
    - Spike:    git checkout -b spike/<SPIKE_ID>-<slug>
    - Bug fix:  git checkout -b fix/<TICKET_ID>-<slug>
-3. เขียน Test ก่อนหรือพร้อมกับโค้ด
-4. ตรวจสอบคุณภาพโค้ดก่อน Commit:
+3. บันทึก Work Log ใน docs/worklogs/ (ตาม docs/worklogs/TEMPLATE.md)
+4. เขียน Test ก่อนหรือพร้อมกับโค้ด
+5. ตรวจสอบคุณภาพโค้ดก่อน Commit:
    - melos run format
    - melos run analyze
    - melos run test
-5. เปิด Pull Request พร้อมกรอก Checklist ตาม PR Template
-6. ได้รับ Code Review Approved อย่างน้อย 1 คน (งานด้าน Security ต้องผ่าน LEAD)
-7. Squash and Merge เข้าสู่ main
+6. เมื่อทำเสร็จ อัปเดตสถานะใน docs/TASK-PROGRESS-AND-UPDATES.md (หรือ UPDATES.md)
+7. เปิด Pull Request พร้อมกรอก Checklist ตาม PR Template
+8. ได้รับ Code Review Approved อย่างน้อย 1 คน (งานด้าน Security ต้องผ่าน LEAD)
+9. Squash and Merge เข้าสู่ main
 ```
+
+> **คำแนะนำสำหรับ AI Coding Assistants (Cursor, Copilot, etc.):**  
+> ให้อ่านและปฏิบัติตาม [`AGENTS.md`](file:///c:/Users/UsEr/Documents/GitHub/DropClip/AGENTS.md) และ [`.cursorrules`](file:///c:/Users/UsEr/Documents/GitHub/DropClip/.cursorrules) อย่างเคร่งครัด
 
 ---
 

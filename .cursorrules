@@ -1,0 +1,25 @@
+# DropClip — Cursor Rules & Workspace Context
+
+You are developing DropClip, a Zero-Cloud, Local-First cross-platform clipboard and file sync system (macOS, Windows, iOS, Android).
+Detailed instructions are located in AGENTS.md. Follow these critical rules:
+
+## 1. 6 Non-Negotiable Rules
+1. PR diffs MUST be <= 400 lines (excluding generated files).
+2. NEVER write code without tests. Cover Happy Path and >= 3 edge cases. Minimum coverage >= 75%.
+3. Timebox Spikes to 4 hours maximum.
+4. NO homegrown crypto. Use standard TLS 1.3 with ECDSA P-256 (secp256r1) and OS Hardware Keystores.
+5. NO whole-file RAM buffering (`file.readAsBytes()` is forbidden). Stream in 1 MiB chunks.
+6. Conventional Commits: `<type>(<scope>): <description> (<TICKET_ID>)`.
+
+## 2. Key Architecture Invariants
+- Pairing: Commit-then-Reveal SAS (Client sends $C_B$ commitment before Host reveals $N_A$).
+- ZERO PIN on Wire: PIN 6-digit is NEVER sent over the network. In PIN mode, it is strictly an OOB salt for local SAS:
+  SAS = SHA-256(fp_lo || fp_hi || N_A || N_B || "dropclip-pin-salt-v1:" || UTF8(PIN)) mod 10^6.
+- Version Negotiation: Negotiate min(local.v, remote.v) >= max(local.min_v, remote.min_v). Incompatible = close code 4003 E_UNSUPPORTED_VERSION.
+- Quotas: Control plane WS frame max = 64 KiB, inline text max = 32 KiB, blob threshold = > 32 KiB, max total clipboard content = 32 MiB.
+- Revocation: No Self-Revocation by Proxy (ignore if revoked_id == my_id). Persistent tombstones & handshake anti-entropy.
+- Sensitive Markers: 100% suppress ConcealedType, TransientType, ExcludeClipboardContentFromMonitorProcessing, CanIncludeInClipboardHistory, EXTRA_IS_SENSITIVE.
+
+## 3. Mandatory Workflow Steps
+1. Document all work in a work log in `docs/worklogs/` (see `docs/worklogs/TEMPLATE.md`).
+2. When finishing a task in your branch, ALWAYS update `docs/TASK-PROGRESS-AND-UPDATES.md` (or `UPDATES.md`) with your ticket completion status, commit hash, and verification notes.
