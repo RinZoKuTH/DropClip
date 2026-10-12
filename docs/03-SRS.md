@@ -44,7 +44,7 @@
 2. เพื่อพัฒนาระบบซิงก์คลิปบอร์ดสองทางแบบอัตโนมัติ (Passive Clipboard Synchronization) ระหว่างระบบปฏิบัติการ Desktop ที่มีความหน่วงต่ำ (Latency p95 < 1,000 ms) พร้อมระบบป้องกันการวนซ้ำของข้อมูล (Loop Prevention)
 3. เพื่อพัฒนาระบบถ่ายโอนไฟล์ความเร็วสูงแบบ Streaming ที่สามารถใช้แบนด์วิดท์ฮาร์ดแวร์เครือข่ายท้องถิ่นได้อย่างมีประสิทธิภาพ (Throughput ≥ 60% ของ iperf3 baseline) โดยใช้หน่วยความจำคงที่ (Fixed Memory Allocation < 100 MB) ไม่จำกัดขนาดไฟล์
 4. เพื่อพัฒนากลไกแปลงรูปแบบภาพในคลิปบอร์ดข้ามระบบปฏิบัติการ (Cross-OS Image Normalizer) ที่คงคุณภาพและความถูกต้องของภาพต้นฉบับ (SSIM ≥ 0.99)
-5. เพื่อออกแบบและพัฒนากลไกความปลอดภัยและความเป็นส่วนตัวในระดับ End-to-End โดยใช้อัตลักษณ์ประจำอุปกรณ์ (Per-Device Identity Ed25519) ระบบเข้ารหัส TLS 1.3 และกลไกคัดกรองข้อมูลอ่อนไหว (Sensitive Content Filtering) ออกจากระบบอัตโนมัติ
+5. เพื่อออกแบบและพัฒนากลไกความปลอดภัยและความเป็นส่วนตัวในระดับ End-to-End โดยใช้อัตลักษณ์ประจำอุปกรณ์ (Per-Device Identity ECDSA P-256 / secp256r1 ตาม ADR-006) ระบบเข้ารหัส TLS 1.3 และกลไกคัดกรองข้อมูลอ่อนไหว (Sensitive Content Filtering) ออกจากระบบอัตโนมัติ
 
 ---
 
@@ -109,11 +109,11 @@
 | **P2P** | Peer-to-Peer | สถาปัตยกรรมเครือข่ายที่อุปกรณ์สื่อสารกันโดยตรงโดยไม่ต้องมีเซิร์ฟเวอร์กลาง |
 | **mDNS / DNS-SD** | Multicast DNS / DNS Service Discovery | โปรโตคอลค้นหาและประกาศบริการของอุปกรณ์บนเครือข่ายท้องถิ่นผ่านพอร์ต UDP 5353 |
 | **TLS 1.3** | Transport Layer Security 1.3 | มาตรฐานความปลอดภัยระดับการขนส่งที่ใช้เข้ารหัสข้อมูลทั้งช่องทาง Control และ Data Plane |
-| **Ed25519** | Edwards-curve Digital Signature Algorithm | อัลกอริทึมลายเซ็นดิจิทัลที่ใช้สร้างกุญแจประจำตัวของอุปกรณ์ (Device Identity) |
-| **SAS** | Short Authentication String | รหัสตัวเลขสั้น 6 หลักที่สร้างขึ้นจากการแลกเปลี่ยนกุญแจเพื่อให้ผู้ใช้ตรวจสอบด้วยตา ป้องกันการโจมตีแบบ MITM |
+| **ECDSA P-256** | Elliptic Curve Digital Signature Algorithm (secp256r1) | อัลกอริทึมลายเซ็นดิจิทัลและกุญแจประจำตัวของอุปกรณ์ (Device Identity) ที่รองรับระดับฮาร์ดแวร์ครบทุก OS (Secure Enclave, Keystore API 29+, Windows CNG/DPAPI) ตาม ADR-006 |
+| **SAS** | Short Authentication String | รหัสตัวเลขสั้น 6 หลักที่สร้างขึ้นจากการแลกเปลี่ยนกุญแจแบบ Commit-then-Reveal เพื่อให้ผู้ใช้ตรวจสอบด้วยตา ป้องกันการโจมตีแบบ MITM |
 | **MITM** | Man-in-the-Middle Attack | รูปแบบการโจมตีที่ผู้ไม่ประสงค์ดีแทรกตัวอยู่ระหว่างกลางช่องทางการสื่อสาร |
-| **Lamport Clock** | Lamport Logical Clock | ตัวนับเชิงตรรกะที่ใช้กำหนดลำดับเหตุการณ์สัมพัทธ์ในระบบกระจายตัว เพื่อแก้ปัญหาการแย่งเขียนข้อมูลคลิปบอร์ด |
-| **LWW** | Last-Writer-Wins | นโยบายการระงับข้อขัดแย้งของข้อมูลโดยยึดข้อมูลจากเครื่องที่ส่งค่านาฬิกาเชิงตรรกะล่าสุดเป็นหลัก |
+| **HLC** | Hybrid Logical Clock | นาฬิกาเชิงตรรกะแบบผสมที่ผสานเวลาจริง (Physical Wall Clock) และตัวนับเชิงตรรกะ เพื่อแก้ปัญหานาฬิกาคลาดเคลื่อนและแก้ปัญหาการคัดลอกใหม่บนเครื่องออฟไลน์ถูกทิ้ง (ADR-008) |
+| **LWW** | Last-Writer-Wins | นโยบายการระงับข้อขัดแย้งของข้อมูลโดยยึดข้อมูลที่มีค่า HLC ล่าสุดเป็นหลัก |
 | **SSIM** | Structural Similarity Index Measure | ดัชนีทางคณิตศาสตร์สำหรับวัดระดับความเหมือนของโครงสร้างภาพดิจิทัล (ค่าสูงสุดเท่ากับ 1.0) |
 | **Concealed Content**| Concealed Clipboard Content | ข้อมูลคลิปบอร์ดที่ถูกระบุ Flag ว่าเป็นข้อมูลลับหรือรหัสผ่านจากโปรแกรมจัดการรหัสผ่าน |
 | **TTL** | Time-To-Live | กลไกกำหนดระยะเวลาคงอยู่ของข้อมูลคลิปบอร์ดชั่วคราว ก่อนถูกล้างทิ้งอัตโนมัติ |
@@ -178,11 +178,11 @@
 
 | กลุ่มข้อมูล (Entity) | รายการข้อมูล (Attributes) | รูปแบบ / โครงสร้าง | สถานะการจัดเก็บ |
 |---|---|---|---|
-| **E-01: อัตลักษณ์อุปกรณ์<br>(Device Identity)** | Device ID (UUID), Device Name, Platform OS, Ed25519 Private Key, X.509 Certificate | JSON / Key Storage | บันทึกถาวรใน Secure Key Storage (Keychain/DPAPI/Keystore) |
+| **E-01: อัตลักษณ์อุปกรณ์<br>(Device Identity)** | Device ID (UUID), Device Name, Platform OS, ECDSA P-256 Private Key, X.509 Certificate | JSON / Key Storage | บันทึกถาวรใน Secure Key Storage (Keychain/DPAPI/Keystore) |
 | **E-02: อุปกรณ์ที่เชื่อถือ<br>(Trusted Device Store)** | Device ID, Peer Name, Fingerprint (SHA-256), Paired Date, Status | JSON Encrypted File | บันทึกถาวรลงในไฟล์ที่เข้ารหัสในเครื่อง |
 | **E-03: อุปกรณ์ที่ค้นพบ<br>(Discovered Peer)** | Device ID, Device Name, IP Address, Port, Fingerprint, Last Seen Timestamp | In-Memory Object | เก็บชั่วคราวในหน่วยความจำ (ลบเมื่อออฟไลน์ > 120s) |
-| **E-04: เพย์โหลดคลิปบอร์ด<br>(Clipboard Payload)** | Message ID, Content Type, Content Hash, Size, Concealed Flag, TTL, Payload Data, Lamport Clock, Origin ID | JSON / Raw Bytes | เก็บชั่วคราวใน Ring Buffer ขนาด 20 รายการในหน่วยความจำ |
-| **E-05: ธุรกรรมการส่งไฟล์<br>(File Transfer Session)** | Transfer ID, Item ID, File Name, File Size, Relative Path, SHA-256 Hash, Current Offset, Status | JSON Metadata + `.part` Temporary File | เก็บชั่วคราวบนดิสก์ ลบทันทีเมื่อการส่งเสร็จสิ้นหรือยกเลิก |
+| **E-04: เพย์โหลดคลิปบอร์ด<br>(Clipboard Payload)** | Message ID, Content Type, Content Hash, Size, Concealed Flag, TTL, Payload Data, HLC (l, c, d), Origin ID | JSON / Raw Bytes | เก็บชั่วคราวใน Ring Buffer ขนาด 20 รายการในหน่วยความจำ |
+| **E-05: ธุรกรรมการส่งไฟล์<br>(File Transfer Session)** | Transfer ID, Item ID, File Name, File Size, Relative Path, SHA-256 Hash, Current Offset, Checkpoints (64 MiB), Status | JSON Metadata + `.part` Temporary File | เก็บชั่วคราวบนดิสก์ ลบทันทีเมื่อการส่งเสร็จสิ้นหรือยกเลิก |
 | **E-06: การตั้งค่าระบบ<br>(System Configuration)**| Auto-Accept Flag, Destination Folder, Clipboard Sync Enabled, Sync Types, TTL Duration, Auto-Start Flag | JSON Configuration File | บันทึกถาวรในโฟลเดอร์ Application Data ของระบบ |
 
 ---
@@ -210,13 +210,13 @@
 | รหัสฟีเจอร์ | ชื่อฟีเจอร์ของระบบ (System Feature) | คำอธิบายขีดความสามารถ | ตอบสนองต่อ |
 |---|---|---|---|
 | **SF-01** | **ระบบค้นหาอุปกรณ์แบบไร้การกำหนดค่า**<br>(Zero-Configuration Discovery) | บริการค้นหา ประกาศตัวตน และตรวจจับอุปกรณ์ภายใน Subnet อัตโนมัติผ่าน mDNS พร้อมกลไกสำรองด้วย QR Code และ Manual IP | UR-07, UR-09 |
-| **SF-02** | **ระบบจับคู่อุปกรณ์แบบเข้ารหัส**<br>(Secure Cryptographic Pairing) | กลไกจับคู่อุปกรณ์โดยแลกเปลี่ยนกุญแจสาธารณะ Ed25519 ผ่าน QR Code และตรวจสอบความถูกต้องด้วยรหัส SAS 6 หลักเพื่อป้องกัน MITM | UR-04, UR-07 |
-| **SF-03** | **ระบบซิงก์คลิปบอร์ดแบบเรียลไทม์**<br>(Real-Time Clipboard Sync Engine) | กลไกตรวจจับการเปลี่ยนแปลงของคลิปบอร์ดระดับ OS และส่งข้อมูลข้ามเครื่องทันที พร้อมกลไกป้องกันการวนซ้ำ (Loop Prevention) และจัดลำดับด้วย Lamport Clock | UR-01, UR-06 |
+| **SF-02** | **ระบบจับคู่อุปกรณ์แบบเข้ารหัส**<br>(Secure Cryptographic Pairing) | กลไกจับคู่อุปกรณ์โดยแลกเปลี่ยนกุญแจสาธารณะ ECDSA P-256 ผ่าน QR Code พร้อมกระบวนการตรวจสอบความถูกต้องด้วยรหัส SAS 6 หลักแบบ Commit-then-Reveal ป้องกัน MITM | UR-04, UR-07 |
+| **SF-03** | **ระบบซิงก์คลิปบอร์ดแบบเรียลไทม์**<br>(Real-Time Clipboard Sync Engine) | กลไกตรวจจับการเปลี่ยนแปลงของคลิปบอร์ดระดับ OS และส่งข้อมูลข้ามเครื่องทันที พร้อมกลไกป้องกันการวนซ้ำ (Loop Prevention) และจัดลำดับด้วย Hybrid Logical Clock (HLC) ป้องกันปัญหาข้อมูลออฟไลน์ถูกทับ | UR-01, UR-06 |
 | **SF-04** | **ระบบปรับมาตรฐานโครงสร้างภาพข้ามระบบ**<br>(Cross-OS Clipboard Image Normalizer) | โมดูลแปลงโครงสร้างข้อมูลไบนารีของภาพในคลิปบอร์ดระหว่าง macOS (TIFF/PNG) และ Windows (DIB/CF_DIBV5) โดยรักษา Alpha Channel และความละเอียดระดับพิกเซล | UR-03 |
 | **SF-05** | **ระบบคัดกรองข้อมูลส่วนบุคคลและข้อมูลอ่อนไหว**<br>(Privacy-Aware Sensitive Filtering) | ระบบตรวจสอบ Flag ข้อมูลลับจาก Password Managers เพื่อระงับการส่งออก พร้อมระบบตัวจับเวลาทำลายข้อมูลชั่วคราว (TTL Engine) | UR-04, UR-08 |
-| **SF-06** | **ระบบสตรีมมิ่งไฟล์ความเร็วสูง**<br>(High-Throughput Streaming File Transfer) | กลไกการอ่านและส่งไฟล์แบบ Binary Chunking (1 MiB) ผ่าน HTTP/1.1 over TLS 1.3 แบบหน่วยความจำคงที่ รองรับการส่งต่อจุดเดิม (Resume) และตรวจ Checksum | UR-02, UR-03, UR-10 |
+| **SF-06** | **ระบบสตรีมมิ่งไฟล์ความเร็วสูง**<br>(High-Throughput Streaming File Transfer) | กลไกการอ่านและส่งไฟล์แบบ Binary Chunking (1 MiB) ผ่าน HTTP/1.1 over TLS 1.3 แบบหน่วยความจำคงที่ รองรับการส่งต่อจุดเดิม (Resume ด้วย 64 MiB Checkpoints) และตรวจ Checksum | UR-02, UR-03, UR-10 |
 | **SF-07** | **ระบบรับไฟล์อัตโนมัติแบบไร้การคลิก**<br>(Zero-Click Trusted File Acceptance) | บริการตรวจสอบสิทธิ์อุปกรณ์ที่จับคู่แล้วและบันทึกไฟล์ลงดิสก์ปลายทางโดยอัตโนมัติ พร้อมส่วนติดต่อผู้ใช้แบบ Drag-and-Drop Dropzone | UR-05, UR-06 |
-| **SF-08** | **ระบบจัดการและเพิกถอนอุปกรณ์ที่เชื่อถือ**<br>(Trusted Device Management & Revocation) | อินเทอร์เฟซบริหารจัดการรายชื่ออุปกรณ์ที่จับคู่ และกลไกส่งสัญญาณเพิกถอนกุญแจเพื่อตัดการเชื่อมต่อทันที | UR-11 |
+| **SF-08** | **ระบบจัดการและเพิกถอนอุปกรณ์ที่เชื่อถือ**<br>(Trusted Device Management & Revocation) | อินเทอร์เฟซบริหารจัดการรายชื่ออุปกรณ์ที่จับคู่ และกลไกส่งสัญญาณเพิกถอนกุญแจที่มีลายเซ็นดิจิทัล (Signed Revocation Broadcast) เพื่อตัดการเชื่อมต่อทั่วทั้งคลัสเตอร์ทันที | UR-11 |
 
 ---
 
@@ -260,19 +260,21 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-02: การจับคู่อุปกรณ์และการแลกเปลี่ยนกุญแจ (Secure Device Pairing & Key Exchange)
-* **Description:** ระบบต้องอนุญาตให้ผู้ใช้สร้างความเชื่อถือระหว่างอุปกรณ์สองเครื่องผ่านการยืนยันรหัส SAS เพื่อป้องกันการดักรับข้อมูล
-* **Input:** ข้อมูล QR Code Payload (IP, Port, Fingerprint, Nonce, Expire Time) และการยืนยันรหัสจากผู้ใช้
-* **Process:**
-  1. เครื่องริเริ่ม (Host) สุ่มสร้างค่า Nonce 16 ไบต์ กำหนดอายุ 60 วินาที และสร้าง QR Code
-  2. เครื่องที่สอง (Client) สแกน QR Code แล้วสร้างการเชื่อมต่อ TLS 1.3 Handshake ชั่วคราวมายัง Host
-  3. ทั้งสองฝั่งนำ Key Fingerprint ของทั้งสองเครื่องมาเรียงตามลำดับตัวอักษร ผสานกับค่า Nonce แล้วคำนวณค่าแฮชเพื่อสร้างรหัสตัวเลข 6 หลัก (Short Authentication String - SAS)
-  4. แสดงรหัส SAS บนหน้าจอทั้งสองเครื่องเพื่อให้ผู้ใช้ตรวจสอบความตรงกัน
-  5. เมื่อผู้ใช้กดปุ่มยืนยันทั้งสองฝั่ง ระบบจะบันทึก Key Fingerprint ของอีกฝ่ายลงใน Trusted Device Store ถาวร
-* **Output:** อุปกรณ์ทั้งสองเข้าสู่สถานะ Paired/Trusted และเริ่มสร้างช่องทางสื่อสารที่ปลอดภัย
-* **Data Validation:** ตรวจสอบอายุของ Nonce (หมดอายุใน 60 วินาที) และรูปแบบ Key Fingerprint (Hex 64 ตัวอักษร)
+* **Description:** ระบบต้องอนุญาตให้ผู้ใช้สร้างความเชื่อถือระหว่างอุปกรณ์สองเครื่องผ่านการแลกเปลี่ยนกุญแจ ECDSA P-256 และยืนยันรหัส SAS แบบ Commit-then-Reveal เพื่อป้องกันการโจมตี Active MITM Brute-force
+* **Input:** ข้อมูล QR Code Payload (IP, Port, Fingerprint, Nonce_A, Expire Time) และการยืนยันรหัสจากผู้ใช้
+* **Process (Commit-then-Reveal Scheme):**
+  1. เครื่องริเริ่ม (Host) สุ่มสร้างค่า `nonce_A` 16 ไบต์ (CSPRNG) กำหนดอายุ 60 วินาที แสดงผ่าน QR Code บนหน้าจอ (Visual Out-of-Band Channel)
+  2. เครื่องที่สอง (Client) สแกน QR Code เพื่อรับ `nonce_A` ทางกายภาพ, สุ่มค่า `nonce_B` 16 ไบต์ และส่งคำนวณ Commitment $C_B = \text{SHA-256}(\text{"dropclip-commit-v1:"} \parallel nonce_B \parallel fp_B)$
+  3. Client เปิดการเชื่อมต่อ TLS 1.3 mTLS ส่ง $C_B$ และ `nonce_A` ผ่าน `POST /api/v1/pair` ไปยัง Host
+  4. Client เปิดเผย `nonce_B` ผ่าน `POST /api/v1/pair/confirm`; Host ตรวจสอบความถูกต้องของ Commitment $C_B$
+  5. ทั้งสองฝั่งนำ Key Fingerprint ของทั้งสองเครื่องมาเรียงตามลำดับตัวอักษร ผสานกับค่า `nonce_A` และ `nonce_B` แล้วคำนวณค่าแฮชสร้างรหัสตัวเลข 6 หลัก (Short Authentication String - SAS)
+  6. แสดงรหัส SAS บนหน้าจอทั้งสองเครื่องเพื่อให้ผู้ใช้ตรวจสอบความตรงกันด้วยตาเปล่า
+  7. เมื่อผู้ใช้กดปุ่มยืนยันทั้งสองฝั่ง ระบบจะบันทึก Key Fingerprint ของอีกฝ่ายลงใน Trusted Device Store ถาวร
+* **Output:** อุปกรณ์ทั้งสองเข้าสู่สถานะ Paired/Trusted และเปิดช่องทาง WebSocket สื่อสารที่ปลอดภัย
+* **Data Validation:** ตรวจสอบอายุของ Nonce (หมดอายุใน 60 วินาที), ค่า Commitment และรูปแบบ Key Fingerprint (Hex 64 ตัวอักษร)
 * **Access Control & Security:** 
   - จำกัดอัตราการขอจับคู่ไม่เกิน 5 ครั้งต่อนาทีต่อหนึ่ง IP Address
-  - หากกดยืนยันรหัสผิดพลาดติดต่อกัน 3 ครั้ง ระบบต้องระงับการเชื่อมต่อจาก IP นั้นเป็นเวลา 5 นาที
+  - หากกดยืนยันรหัสผิดพลาดหรือ commitment ล้มเหลวติดต่อกัน 3 ครั้ง ระบบต้องระงับการเชื่อมต่อจาก IP นั้นเป็นเวลา 5 นาที
 
 ---
 
@@ -283,10 +285,10 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 * **Input:** เหตุการณ์การคัดลอกข้อมูลในระดับระบบปฏิบัติการ (OS Clipboard Change Event)
 * **Process:**
   1. *ฝั่งตรวจจับการเปลี่ยนแปลง:*
-     - บน Windows: รับ Event ผ่าน Win32 API `AddClipboardFormatListener`
+     - บน Windows: รับ Event ผ่าน Win32 API `AddClipboardFormatListener` (Event-driven อัตรากิน CPU < 0.2%)
      - บน macOS: ตรวจสอบค่า `changeCount` ของ `NSPasteboard` ด้วยกลไก Adaptive Polling (200 ms เมื่อผู้ใช้ Active, 1,000 ms เมื่อ Idle, 2,000 ms เมื่อล็อกหน้าจอ)
-  2. *ฝั่งส่ง:* ตรวจสอบ Suppression Window (800 ms และค่า Hash ต้องไม่ตรงกับข้อมูลที่เพิ่งเขียน) หากผ่านเกณฑ์ ให้ส่งข้อมูลพร้อมค่า Lamport Clock ไปยังเครื่องปลายทางผ่าน WebSocket
-  3. *ฝั่งรับ:* ผสานค่า Lamport Clock, ตรวจสอบลำดับด้วยนโยบาย Last-Writer-Wins (LWW), บันทึก Hash ลง Suppression Table และเขียนข้อมูลลง System Clipboard ของเครื่องปลายทางทันที
+  2. *ฝั่งส่ง:* ตรวจสอบ Suppression Window (800 ms และค่า Hash ต้องไม่ตรงกับข้อมูลที่เพิ่งเขียน) หากผ่านเกณฑ์ ให้ส่งข้อมูลพร้อมค่า Hybrid Logical Clock (HLC) ไปยังเครื่องปลายทางผ่าน WebSocket
+  3. *ฝั่งรับ:* ผสานค่า HLC, ตรวจสอบลำดับด้วยนโยบาย Last-Writer-Wins (LWW บน HLC), บันทึก Hash ลง Suppression Table และเขียนข้อมูลลง System Clipboard ของเครื่องปลายทางทันที
 * **Output:** ข้อมูลปรากฏในคลิปบอร์ดของเครื่องปลายทาง พร้อมใช้งานด้วยคำสั่ง Paste (Ctrl+V / Cmd+V) ทันที
 * **Data Validation:** ตรวจสอบขนาด Payload หากเกิน 32 KiB ต้องสลับไปส่งแบบ Blob ผ่าน Data Plane
 * **Exception Handling:** หากเกิดเหตุการณ์ Clipboard Access Lock จากแอปพลิเคชันอื่น ให้หน่วงเวลาและพยายามเข้าถึงใหม่ (Retry with Backoff) สูงสุด 3 ครั้ง หากไม่สำเร็จให้บันทึก Warning Log โดยไม่ทำให้โปรแกรม Crash
@@ -296,7 +298,7 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ### FR-03B: การซิงก์คลิปบอร์ดระดับ Tier 2 — Assisted Sync (Android 10+)
 * **Description:** ระบบต้องรองรับการเขียนข้อมูลคลิปบอร์ดที่ส่งมาจาก Desktop ลงสู่ Android อัตโนมัติ และรองรับการดึงข้อมูลคลิปบอร์ดจาก Android ส่งกลับไปยัง Desktop ผ่านการสั่งการแบบขั้นตอนเดียว (1-Click Action)
 * **Target Platform:** Android 10 (API Level 29) ถึง Android 14+
-* **Pre-conditions:** แอปพลิเคชัน DropClip เปิดทำงาน Foreground Service พร้อมแสดง Persistent Notification และได้รับสิทธิ์เครือข่ายแล้ว
+* **Pre-conditions:** แอปพลิเคชัน DropClip เปิดทำงาน Foreground Service (`foregroundServiceType="connectedDevice"` ตาม ADR-007) พร้อมแสดง Persistent Notification และได้รับสิทธิ์เครือข่ายแล้ว
 * **Input:**
   - *ทิศทาง Inbound (Desktop → Android):* ข้อความ `clipboard.update` ผ่าน WebSocket
   - *ทิศทาง Outbound (Android → Desktop):* สัญญาณการคลิกจาก Quick Settings Tile, ปุ่มบน Notification หรือการแชร์ข้อความผ่าน Share Sheet
@@ -308,11 +310,12 @@ DropClip ได้รับการออกแบบภายใต้สถ�
      - แสดงการแจ้งเตือนแบบเงียบ (Silent Toast/HUD) แจ้งผู้ใช้ว่า "คัดลอกจาก [Device Name] แล้ว"
   2. *ทิศทาง Outbound (Assisted):*
      - เมื่อผู้ใช้แตะ **Quick Settings Tile ("DropClip")** หรือแตะปุ่ม **"Send Clipboard"** บน Persistent Notification
-     - ระบบจะดึง Activity สั้น ๆ ขึ้นมาระดับเบื้องหน้าในเสี้ยววินาที (Transient Focus) เพื่อให้ได้รับสิทธิ์อ่านคลิปบอร์ดตามกฎของ Android 10+
+     - ระบบจะเรียกคำสั่งผ่าน `PendingIntent` (Android 14+ API Requirement) ดึง Transient Activity ขึ้นมาระดับเบื้องหน้าในเสี้ยววินาทีเพื่อรับ Transient Focus
      - อ่านข้อมูลจาก `ClipboardManager.getPrimaryClip()`
      - ส่งข้อมูลต่อไปยังอุปกรณ์ Desktop ที่เชื่อมต่ออยู่ผ่าน WebSocket Control Plane
 * **Output:** ข้อมูลซิงก์ถึงกันทั้งสองฝั่งอย่างถูกต้องตามข้อกำหนดความปลอดภัยของระบบปฏิบัติการ
 * **Data Validation:** ตรวจสอบ `ClipDescription.EXTRA_IS_SENSITIVE` หากพบว่าข้อมูลถูกตั้งค่าเป็นข้อมูลลับ ให้ยกเลิกการส่งออกทันที
+* **Discovery Constraint:** ระบบต้องทำการ Acquire `WifiManager.MulticastLock` ระหว่างทำการสแกน mDNS เพื่อรับฟังแพ็กเก็ต UDP 5353 ได้อย่างสมบูรณ์
 * **Exception Handling:** หาก Service ถูกระบบปฏิบัติการตัดการทำงาน ให้ลงทะเบียนคำสั่ง `START_STICKY` เพื่อให้ Foreground Service ฟื้นตัวกลับมาโดยอัตโนมัติ
 
 ---
@@ -322,36 +325,40 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 * **Target Platform:** iOS 15.0 ถึง iOS 17+
 * **Pre-conditions:** ติดตั้งแอปพลิเคชัน DropClip และเปิดใช้งานสิทธิ์ Local Network Access
 * **Input:**
-  - *ทิศทาง Outbound (iOS → Others):* ข้อมูลที่ส่งผ่าน Share Sheet Extension, การกด Action Button, หรือการกดปุ่มบน Lock/Home Screen Widget
+  - *ทิศทาง Outbound (iOS → Others):* ข้อมูลที่ส่งผ่าน Share Sheet Extension, การกด Action Button (iPhone 15 Pro+), หรือการกดปุ่มบน Lock/Home Screen Widget
   - *ทิศทาง Inbound (Others → iOS):* สัญญาณข้อมูลที่ส่งมายังแอปขณะเปิดใช้งาน หรือผ่านการรัน Apple Shortcuts Automation
 * **Process:**
   1. *ทิศทาง Outbound (Share Extension & Widget):*
      - ผู้ใช้เลือกข้อความ/ลิงก์/ภาพ แล้วกดแชร์ผ่าน **DropClip Share Extension** หรือแตะ Widget คำสั่งลัด
-     - Share Extension เปิดการเชื่อมต่อ Local TLS 1.3 socket สั้น ๆ ไปยัง Desktop โหนดปลายทาง
+     - Share Extension ทำงานด้วย Native Swift ใช้ `URLSessionConfiguration.background(withIdentifier:)` ร่วมกับ App Group Shared Keychain Identity สตรีมข้อมูลไปยังปลายทางโดยควบคุม Peak RAM < 30 MB (ป้องกัน Jetsam Kill)
      - ส่ง Payload ข้อความ และปิดการเชื่อมต่อเมื่อส่งเสร็จสิ้น
   2. *ทิศทาง Inbound:*
      - เนื่องจาก iOS ไม่อนุญาตให้เขียน `UIPasteboard` จากเบื้องหลังโดยที่ผู้ใช้ไม่ได้โต้ตอบ ระบบจะใช้วิธีเก็บข้อความล่าสุดไว้ในคิว (Catch-up Queue)
      - เมื่อผู้ใช้เปิดแอป DropClip หรือแตะ Widget ดึงข้อมูล ระบบจะอ่านข้อมูลล่าสุดจากคิวและเขียนลง `UIPasteboard.general`
 * **Output:** ข้อมูลถูกส่งออกหรือเขียนลง Pasteboard ของ iOS ได้อย่างถูกต้องโดยไม่ละเมิด Sandbox
-* **Data Validation:** ตรวจสอบขนาดของภาพถ่ายและประเภทข้อมูล UTF-8 Plain Text
-* **Exception Handling:** หากระบบปฏิบัติการ iOS แสดง Paste Permission Prompt ("DropClip would like to paste from...") และผู้ใช้ปฏิเสธ ระบบต้องแสดงคำแนะนำการตั้งค่าโดยไม่หยุดการทำงาน
+* **Platform Constraints & Fallbacks:**
+  - *iOS Discovery:* สื่อสาร mDNS ผ่าน `NWBrowser` และประกาศ `NSBonjourServices` (`_dropclip._tcp`) ใน `Info.plist` แทนการใช้ raw multicast UDP socket
+  - *Interactive Widget & Action Button Fallback:* บน iOS 15/16 ซึ่งยังไม่มี Interactive Widget ให้ใช้กลไกแตะ Widget เพื่อ Launch เข้าสู่แอป หรือรันคำสั่งลัดผ่าน Apple Shortcuts Automation แทน
+  - *iOS 16+ Allow Paste Prompt:* รองรับและนับรวมหน้าต่างยืนยันความปลอดภัยของระบบในเกณฑ์การวัดขั้นตอนการใช้งาน (Interaction Steps 1–2 ครั้ง)
+* **Exception Handling:** หากผู้ใช้ปฏิเสธ Paste Prompt ระบบต้องแสดงคำแนะนำการตั้งค่าโดยไม่หยุดการทำงาน
 
 ---
 
 ### FR-04: การซิงก์คลิปบอร์ดและการป้องกันการวนซ้ำ (Clipboard Synchronization & Loop Prevention)
-* **Description:** ระบบต้องกระจายข้อมูลคลิปบอร์ดไปยังอุปกรณ์ที่จับคู่ พร้อมระงับการวนซ้ำของข้อมูล และผสานข้อมูลด้วยหลักการ Lamport Clock
+* **Description:** ระบบต้องกระจายข้อมูลคลิปบอร์ดไปยังอุปกรณ์ที่จับคู่ พร้อมระงับการวนซ้ำของข้อมูล และผสานข้อมูลด้วยหลักการ Hybrid Logical Clock (HLC)
 * **Input:** วัตถุคลิปบอร์ดที่ตรวจพบจาก FR-03A/B/C หรือข้อความ `clipboard.update` จากอุปกรณ์อื่น
 * **Process (ขาส่ง):**
   1. ตรวจสอบ Suppression Window: หากอยู่ในช่วงเวลา 800 ms หลังระบบเพิ่งเขียนข้อมูลลงคลิปบอร์ด และค่าแฮชตรงกับข้อมูลที่เพิ่งเขียน ให้ยกเลิกการส่ง (ป้องกัน Echo Loop)
   2. ตรวจสอบสถานะ Concealed: หากข้อมูลติดสถานะอ่อนไหว ให้ยกเลิกการส่งทันที (FR-05)
-  3. เพิ่มค่า Lamport Clock ของเครื่องตนเองขึ้น 1 หน่วย
+  3. ทำการ Tick ค่า Hybrid Logical Clock (HLC: Physical Milliseconds + Logical Counter) ของเครื่องตนเอง
   4. หากข้อมูล ≤ 32 KiB ส่งผ่าน WebSocket ทันที, หากข้อมูล > 32 KiB ให้บันทึกเป็น Blob ชั่วคราวและส่งเฉพาะ Reference ID
 * **Process (ขารับ):**
-  1. รวมค่า Lamport Clock: `Local_Clock = max(Local_Clock, Remote_Clock) + 1`
-  2. ตรวจสอบ Message ID กับ LRU Cache (ขนาด 200 รายการ) หากซ้ำให้ทิ้งข้อมูล
-  3. แก้ไขข้อขัดแย้งด้วยหลักการ Last-Writer-Wins (LWW) หาก Clock เท่ากัน ให้ตัดสินด้วยการเปรียบเทียบค่า Device ID
-  4. ตั้งค่า Suppression Window และค่าแฮชล่าสุด ก่อนสั่งเขียนข้อมูลลงคลิปบอร์ดของระบบปฏิบัติการ
-* **Output:** ข้อมูลปรากฏในคลิปบอร์ดของอุปกรณ์ปลายทางพร้อมใช้งาน
+  1. ตรวจสอบ Clock Drift หากค่าเวลา `l` ของผู้ส่งล้ำหน้าเกิน 60 วินาที ให้ปฏิเสธข้อความ
+  2. รวมค่า HLC: `hlc = hlc.merge(remote_hlc)`
+  3. ตรวจสอบ Message ID กับ LRU Cache (ขนาด 200 รายการ) หากซ้ำให้ทิ้งข้อมูล
+  4. แก้ไขข้อขัดแย้งด้วยหลักการ Last-Writer-Wins (LWW) บนค่า HLC หากเท่ากัน ให้ตัดสินด้วยการเปรียบเทียบค่า Device ID
+  5. ตั้งค่า Suppression Window และค่าแฮชล่าสุด ก่อนสั่งเขียนข้อมูลลงคลิปบอร์ดของระบบปฏิบัติการ
+* **Output:** ข้อมูลปรากฏในคลิปบอร์ดของอุปกรณ์ปลายทางพร้อมใช้งาน โดยข้อมูลใหม่ที่คัดลอกจากเครื่องออฟไลน์จะไม่ถูกทับทิ้ง
 * **Data Validation:** ตรวจสอบความสมบูรณ์ของ JSON Envelope และความถูกต้องของค่าแฮชข้อมูล
 
 ---
@@ -361,8 +368,8 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 * **Input:** Metadata ชนิดคลิปบอร์ดจาก OS และค่าคอนฟิกูเรชัน TTL
 * **Process:**
   1. ตรวจสอบ Flag ข้อมูลลับระดับ OS:
-     - macOS: ตรวจสอบ Pasteboard Type `org.nspasteboard.ConcealedType`
-     - Windows: ตรวจสอบฟอร์แมต `ExcludeClipboardContentFromMonitorProcessing`
+     - macOS: ตรวจสอบ Pasteboard Type `org.nspasteboard.ConcealedType`, `TransientType`, `AutoGeneratedType`
+     - Windows: ตรวจสอบฟอร์แมต `ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory` = 0
      - Android: ตรวจสอบ `ClipDescription.EXTRA_IS_SENSITIVE`
   2. หากพบ Flag ดังกล่าว ให้ทำการ Drop ข้อมูลทิ้งทันที บันทึก Log เฉพาะประเภทข้อมูล (ห้ามบันทึกเนื้อหา)
   3. สำหรับข้อมูลคลิปบอร์ดทั่วไปที่มีการกำหนดค่า TTL (เช่น ข้อความสั้น 60 วินาที) ให้ตั้งตัวนับเวลาถอยหลัง
@@ -387,7 +394,7 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-07: การส่งไฟล์แบบสตรีมมิ่งผ่าน Data Plane (High-Throughput File Transfer Sender)
-* **Description:** ระบบต้องส่งไฟล์และโฟลเดอร์ในรูปแบบไบนารีสตรีมมิ่งโดยใช้หน่วยความจำคงที่
+* **Description:** ระบบต้องส่งไฟล์และโฟลเดอร์ในรูปแบบไบนารีสตรีมมิ่งโดยใช้หน่วยความจำคงที่ ไม่จำกัดขนาดไฟล์ตามโปรโตคอล (รองรับไฟล์ระดับ 4 GB บนมือถือ และ 10 GB บน Desktop)
 * **Input:** รายการไฟล์หรือโฟลเดอร์จากการลากวาง (Drag-and-Drop) หรือการเลือกไฟล์ของผู้ใช้
 * **Process:**
   1. สำรวจรายการไฟล์ โครงสร้างไดเรกทอรี และคำนวณผลรวมขนาดไฟล์ทั้งหมด พร้อมสร้าง Transfer ID
@@ -406,22 +413,22 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 * **Input:** HTTP Data Stream จากเครื่องส่งที่ได้รับอนุญาต
 * **Process:**
   1. ตรวจสอบสิทธิ์โหนดต้นทางผ่าน TLS Certificate Pinning หากไม่ผ่านให้ตอบกลับ HTTP 403 Forbidden
-  2. ทำความสะอาดพาธไฟล์ (Path Sanitization): ปฏิเสธพาธที่มี `..`, Null Byte, Absolute Path หรืออักขระต้องห้ามของ OS
+  2. ทำความสะอาดพาธไฟล์ (Path Sanitization): ปฏิเสธพาธที่มี `..`, Null Byte, Absolute Path หรืออักขระต้องห้ามของ OS ครบ 12 รูปแบบ
   3. ตรวจสอบพื้นที่ว่างบนดิสก์ปลายทาง หากพื้นที่ไม่พอ ให้ยกเลิกและแจ้งเตือนผู้ใช้
-  4. สตรีมข้อมูลลงไฟล์ชั่วคราว `.part` และคำนวณผลรวมแฮช SHA-256 ควบคู่ไปกับการเขียนลงดิสก์
+  4. สตรีมข้อมูลลงไฟล์ชั่วคราว `.part` และคำนวณผลรวมแฮช SHA-256 ควบคู่ไปกับการเขียนลงดิสก์ พร้อมบันทึก Checkpoint ลง sidecar ทุก 64 MiB
   5. เมื่อสตรีมครบถ้วน เปรียบเทียบผลรวมแฮชกับค่าที่ต้นทางแจ้ง หากถูกต้องตรงกัน เปลี่ยนชื่อไฟล์จาก `.part` เป็นชื่อจริงและย้ายเข้าโฟลเดอร์ปลายทาง
   6. แสดงการแจ้งเตือน (System Notification) ให้ผู้ใช้ทราบ
 * **Output:** ไฟล์ถูกบันทึกลงโฟลเดอร์ปลายทางอย่างถูกต้องสมบูรณ์
-* **Security Rule:** บน macOS ต้องทำการแนบ Quarantine Attribute (`com.apple.quarantine`) และห้ามมิให้ระบบสั่ง Execute หรือเปิดไฟล์โดยอัตโนมัติเด็ดขาด
+* **Security Rule:** บน macOS ต้องทำการแนบ Quarantine Attribute (`com.apple.quarantine`), บน Windows แนบ Mark-of-the-Web (`Zone.Identifier`) และห้ามมิให้ระบบสั่ง Execute หรือเปิดไฟล์โดยอัตโนมัติเด็ดขาด
 
 ---
 
 ### FR-09: การส่งต่อไฟล์จากจุดที่ค้าง (Resumable Transfer Handling)
-* **Description:** ระบบต้องสามารถกู้คืนและส่งไฟล์ต่อจากจุดเดิมได้ทันทีเมื่อการเชื่อมต่อหลุดกลางคัน
+* **Description:** ระบบต้องสามารถกู้คืนและส่งไฟล์ต่อจากจุดเดิมได้ทันทีเมื่อการเชื่อมต่อหลุดกลางคัน โดยใช้ระบบ Checkpoints ทุก 64 MiB
 * **Input:** Transfer ID และ Item ID ของธุรกรรมที่ยังไม่สมบูรณ์
 * **Process:**
   1. เมื่อการเชื่อมต่อเครือข่ายกลับมา โหนดต้นทางส่งคำขอสอบถามสถานะไปยังโหนดปลายทาง
-  2. โหนดปลายทางตรวจสอบขนาดของไฟล์ `.part` ที่เขียนค้างไว้บนดิสก์ และตอบกลับค่า Byte Offset ปัจจุบัน
+  2. โหนดปลายทางกู้คืน Hasher State จาก Checkpoint ล่าสุดใน sidecar `.part.json` ทำการ rehash เฉพาะส่วนต่างระดับสั้น ๆ แล้วตอบกลับค่า Byte Offset ปัจจุบัน (< 200 ms)
   3. โหนดต้นทางเลื่อน Pointer การอ่านไฟล์ (Seek) ไปยัง Byte Offset นั้น แล้วเริ่มสตรีมข้อมูลส่วนที่เหลือ
   4. ทำการคำนวณแฮช SHA-256 แบบเต็มไฟล์เพื่อยืนยันความถูกต้องในขั้นตอนสุดท้าย
 * **Output:** กระบวนการถ่ายโอนไฟล์ดำเนินต่อจนเสร็จสมบูรณ์โดยไม่ต้องส่งข้อมูลใหม่ตั้งแต่ต้น
@@ -433,7 +440,7 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 * **Description:** ระบบต้องเฝ้าระวังสถานะของช่องทางการสื่อสาร และเชื่อมต่อใหม่โดยอัตโนมัติเมื่อเกิดข้อผิดพลาด
 * **Input:** สถานะการรับส่ง Heartbeat (Ping/Pong) บน WebSocket
 * **Process:**
-  1. ส่งแพ็กเก็ต Ping ทุก 15 วินาที หากไม่ได้รับ Pong ภายใน 45 วินาที ให้ถือว่าช่องทางสื่อสารขาดการเชื่อมต่อ
+  1. ส่งแพ็กเก็ต Ping ทุก 15 วินาที หากไม่ได้รับ Pong ภายใน 45 วินาที ให้ถือว่าช่องทางสื่อสารขาดการเชื่อมต่อ (Authoritative Liveness ตัดสินแทน mDNS Stale)
   2. เมื่อการเชื่อมต่อขาด ให้เริ่มกลไก Reconnection แบบ Exponential Backoff (1, 2, 4, 8, 16, สูงสุด 30 วินาที พร้อม Jitter ±20%)
   3. พักข้อความคลิปบอร์ดที่เกิดขึ้นระหว่างออฟไลน์ไว้ใน Outbound Queue (สูงสุด 50 รายการ)
   4. เมื่อเชื่อมต่อสำเร็จ ส่งข้อมูลจาก Queue และดึงข้อมูลล่าสุดจาก Catch-up Queue มาอัปเดต
@@ -441,15 +448,16 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 
 ---
 
-### FR-11: การจัดการอุปกรณ์และการเพิกถอนสิทธิ์ (Device Management & Access Revocation)
-* **Description:** ระบบต้องอนุญาตให้ผู้ใช้ตรวจสอบรายการอุปกรณ์ และเพิกถอนสิทธิ์อุปกรณ์ที่ไม่ต้องการได้ทันที
+### FR-11: การจัดการอุปกรณ์และการเพิกถอนสิทธิ์ทั่วทั้งคลัสเตอร์ (Device Management & Signed Cluster Revocation)
+* **Description:** ระบบต้องอนุญาตให้ผู้ใช้ตรวจสอบรายการอุปกรณ์ และเพิกถอนสิทธิ์อุปกรณ์ที่ไม่ต้องการได้ทันที พร้อมกระจายคำสั่งเพิกถอนที่มีลายเซ็นดิจิทัลไปยังทุกอุปกรณ์ในคลัสเตอร์
 * **Input:** คำสั่งเพิกถอนอุปกรณ์ (Revoke Command) จากหน้าต่างการตั้งค่า
 * **Process:**
   1. แสดงรายการอุปกรณ์ที่เคยจับคู่ทั้งหมด พร้อมชื่อ ชนิด OS และสถานะออนไลน์/ออฟไลน์
-  2. เมื่อผู้ใช้ยืนยันการเพิกถอน ระบบส่งข้อความ `device.revoked` ไปยังอุปกรณ์ดังกล่าวผ่าน Control Plane
-  3. ลบ Key Fingerprint ของอุปกรณ์นั้นออกจาก Trusted Device Store ทันที
-  4. ตัดการเชื่อมต่อ Socket ทั้งหมดที่ผูกอยู่กับอุปกรณ์นั้นภายใน 1 วินาที
-* **Output:** อุปกรณ์ดังกล่าวถูกลบสถานะความเชื่อถือ และถูกปฏิเสธการเชื่อมต่อทุกรูปแบบในอนาคตด้วยรหัส `E_NOT_PAIRED`
+  2. เมื่อผู้ใช้สั่งเพิกถอน:
+     - เครื่องที่สั่งเพิกถอนลบ Key Fingerprint ออกจาก Trusted Store ในเครื่องตนเองทันที และตัดการเชื่อมต่อ Socket ภายใน **< 1.0 วินาที** (NFR-S05)
+     - สร้าง `RevocationBroadcastToken` ที่ลงนามด้วย ECDSA P-256 Private Key ของตนเอง และกระจายข้อความ `cluster.revocation` ไปยังทุก Peer ในวง LAN
+  3. โหนดในคลัสเตอร์ที่ได้รับข้อความจะตรวจสอบลายเซ็นดิจิทัล และดำเนินการเพิกถอนเครื่องเป้าหมายออกจาก Trusted Store ของตนเองทันที พร้อมตัดการเชื่อมต่อภายใน **< 2.0 วินาที** ทั่วทั้งเครือข่าย LAN
+* **Output:** อุปกรณ์ดังกล่าวถูกลบสถานะความเชื่อถือออกจากทุกอุปกรณ์ในคลัสเตอร์อย่างสมบูรณ์ และถูกปฏิเสธการเชื่อมต่อทุกรูปแบบในอนาคตด้วยรหัส `E_NOT_PAIRED`
 
 ---
 
@@ -482,13 +490,13 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 
 #### ตัวชี้วัดด้านประสิทธิภาพเพิ่มเติม (Additional Performance Requirements)
 * **NFR-P02 (ความหน่วงการซิงก์คลิปบอร์ดรูปภาพ):** การซิงก์ภาพขนาด 2 MB ต้องสำเร็จภายในเวลา **p95 < 2,500 ms**
-* **NFR-P03 (ความเร็วในการถ่ายโอนไฟล์):** อัตรา Throughput ในการถ่ายโอนไฟล์ขนาดใหญ่ (1 GB และ 10 GB) ต้องทำได้ **≥ 60% ของค่า Throughput สูงสุดที่วัดได้จาก iperf3 baseline** บนเครือข่ายเดียวกัน
+* **NFR-P03 (ความเร็วในการถ่ายโอนไฟล์):** อัตรา Throughput ในการถ่ายโอนไฟล์ขนาดใหญ่ (ทดสอบที่ 4 GB บน Mobile และ 10 GB บน Desktop) ต้องทำได้ **≥ 60% ของค่า Throughput สูงสุดที่วัดได้จาก iperf3 baseline** ภายใต้สภาพแวดล้อม Test Rig มาตรฐาน: เราเตอร์ Wi-Fi 6 (802.11ax) ย่านความถี่ 5 GHz, Channel Width 80 MHz, ค่าความแรงสัญญาณ RSSI ≥ -60 dBm หรือสายเคเบิล 1 Gbps Ethernet LAN
 * **NFR-P04 (เวลาในการค้นพบอุปกรณ์):** ระบบต้องค้นพบอุปกรณ์อื่นในเครือข่ายเดียวกันภายในเวลา **< 3 วินาที** นับจากเปิดโปรแกรม
 * **NFR-P05 (เวลาในการประมวลผลแปลงภาพ):** การแปลงโครงสร้างภาพความละเอียด 4K ระหว่าง OS ต้องใช้เวลา **< 200 ms**
 
 ### 3.3.2 ด้านการใช้ทรัพยากรระบบ (Resource Utilization Requirements)
-* **NFR-R01 (การควบคุมหน่วยความจำขณะส่งไฟล์):** ขณะสตรีมไฟล์ขนาดใหญ่ (ทดสอบที่ 10 GB) ตัวโปรแกรมต้องใช้หน่วยความจำ RAM สูงสุด (Resident Set Size - RSS) **ไม่เกิน 100 MB ตลอดระยะเวลาการส่ง**
-* **NFR-R02 (การใช้ CPU ในสถานะไม่ได้ใช้งาน):** บน Desktop เมื่อไม่มีการรับส่งข้อมูล อัตราการใช้ CPU เฉลี่ยต้อง **< 0.5%** ตลอดระยะเวลา 8 ชั่วโมง
+* **NFR-R01 (การควบคุมหน่วยความจำขณะส่งไฟล์และการทดสอบ Soak Test):** ขณะสตรีมไฟล์ขนาดใหญ่ (ทดสอบที่ 10 GB บน Desktop และ 4 GB บน Mobile) ตัวโปรแกรมต้องใช้หน่วยความจำ RAM สูงสุด (Resident Set Size - RSS) **ไม่เกิน 100 MB ตลอดระยะเวลาการส่ง** และในการทดสอบความคงทนระยะยาว 72 ชั่วโมง (72-hour Soak Test) อัตราการเพิ่มของหน่วยความจำ RSS ต้อง **≤ 5%** หลังจากผ่านพ้นช่วง Warm-up 30 นาทีแรก
+* **NFR-R02 (การใช้ CPU ในสถานะไม่ได้ใช้งาน):** บน Desktop เมื่อไม่มีการรับส่งข้อมูล อัตราการใช้ CPU เฉลี่ยต้อง **< 0.5%** ตลอดระยะเวลา 8 ชั่วโมง (โดยบน Windows ที่ทำงานแบบ Event-Driven Clipboard Listener ต้องทำได้เฉลี่ย **< 0.2%**)
 * *(หมายเหตุ: ข้อกำหนด NFR-R03A และ NFR-R03B ได้รับการระบุไว้ในตาราง Matrix หัวข้อ 3.3.1)*
 
 ### 3.3.3 ด้านความน่าเชื่อถือและความสมบูรณ์ของข้อมูล (Reliability Requirements)
@@ -500,8 +508,8 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 * **NFR-S01 (การเข้ารหัสข้อมูล):** การสื่อสารทุกช่องทาง (Control & Data Plane) ต้องใช้โปรโตคอล **TLS 1.3 ล้วน** (บังคับใช้ Cipher Suite สมัยใหม่ เช่น `TLS_AES_128_GCM_SHA256`) และปฏิเสธการลดระดับโปรโตคอล (Downgrade Attack) ทั้งหมด
 * **NFR-S02 (การจัดเก็บกุญแจความปลอดภัย):** Private Key ของอุปกรณ์ต้องถูกจัดเก็บบน Secure Storage ประจำ OS (Keychain, DPAPI, Keystore) และ **ต้องไม่ปรากฏเป็นไฟล์ข้อความธรรมดา (Plaintext) บนดิสก์เด็ดขาด**
 * **NFR-S03 (การป้องกันการเขียนไฟล์อันตราย):** ระบบต้องสามารถป้องกันการโจมตีประเภท Path Traversal, Directory Traversal (`../`), Null Byte Injection, และ Windows Reserved Filenames ได้ **100% จากชุดทดสอบการโจมตี 12 รูปแบบ**
-* **NFR-S04 (การกรองข้อมูลอ่อนไหว):** ข้อมูลที่คัดลอกจาก Password Managers (1Password, Bitwarden, Apple Keychain) **ต้องถูกระงับการส่งออกนอกเครื่อง 100% จากการทดสอบคัดลอก 100 ครั้ง**
-* **NFR-S05 (เวลาในการบังคับใช้การเพิกถอน):** เมื่อกดเพิกถอนอุปกรณ์ ระบบต้องทำการตัดการเชื่อมต่อและเพิกถอนสิทธิ์ให้มีผลเสร็จสิ้น **ภายในระยะเวลาไม่เกิน 1 วินาที**
+* **NFR-S04 (การกรองข้อมูลอ่อนไหว):** ระบบต้องกรองและระงับการส่งออกข้อมูลคลิปบอร์ดที่มี **Known OS Sensitive Marker ที่รู้จักได้ 100%** (ครอบคลุม `org.nspasteboard.ConcealedType`, `org.nspasteboard.TransientType`, `ExcludeClipboardContentFromMonitorProcessing`, และ `ClipDescription.EXTRA_IS_SENSITIVE`) จากการทดสอบคัดลอก 100 ครั้ง จาก Password Managers (1Password, Bitwarden, Apple Keychain)
+* **NFR-S05 (เวลาในการบังคับใช้การเพิกถอน):** เมื่อกดเพิกถอนอุปกรณ์ ระบบต้องทำการตัดการเชื่อมต่อและเพิกถอนสิทธิ์บนเครื่องที่สั่ง **ภายในเวลา < 1.0 วินาที** และโหนดที่ออนไลน์ทั้งหมดในคลัสเตอร์ LAN ต้องดำเนินการเพิกถอนเสร็จสิ้น **ภายในเวลา < 2.0 วินาที**
 
 ### 3.3.5 ด้านความง่ายในการใช้งานและการเข้าถึง (Usability Requirements)
 * **NFR-U01 (การลดขั้นตอนการทำงาน):** ระบบต้องช่วยลดขั้นตอนการโต้ตอบของผู้ใช้ (Interaction Count) ลง **≥ 70%** เมื่อเทียบกับวิธีการส่งข้อมูลเดิมใน 5 สถานการณ์ทดสอบ

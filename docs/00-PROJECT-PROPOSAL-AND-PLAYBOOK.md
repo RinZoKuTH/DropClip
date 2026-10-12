@@ -276,7 +276,7 @@ HTTP/2 flow-control window default 64 KB ทำให้ throughput บน LAN �
 ```
 dropclip/
 ├── packages/
-│   ├── dropclip_protocol/      # Lead only — message schema
+│   ├── dropclip_protocol/      # message schema, HLC, SAS, sanitization
 │   ├── dropclip_core/          # discovery, transport, crypto wrapper, sync engine
 │   ├── dropclip_clipboard/     # platform channel + Format Normalizer
 │   ├── dropclip_transfer/      # file transfer engine
@@ -295,6 +295,33 @@ dropclip/
 ```
 
 จัดการด้วย **Melos** — `melos test` รันเทสต์ทุก package
+
+### ADR-006 — เปลี่ยน Identity Key จาก Ed25519 เป็น ECDSA P-256 (secp256r1)
+
+| ตัวเลือก | ผลการประเมิน | เหตุผล |
+|---|---|---|
+| Ed25519 | ❌ ปฏิเสธ | 1. Android Keystore รองรับ Ed25519 ตั้งแต่ Android 13+ เท่านั้น ขัดกับขอบเขต Android 10+<br>2. Apple Security.framework ไม่รองรับ Ed25519 สำหรับ `SecIdentity` / client cert mTLS ใน `URLSession`<br>3. Dart `SecureServerSocket` บน BoringSSL ขาด callback สำหรับ custom self-signed verification หากไม่มี CA/Cert parsing มาตรฐาน |
+| **ECDSA P-256 (NIST P-256 / secp256r1)** | ✅ เลือก | รองรับระดับฮาร์ดแวร์ครบทุกระบบ (Apple Secure Enclave, Android Keystore API 23+, Windows CNG/DPAPI), รองรับ X.509 v3 client cert ใน `URLSession` และ Dart TLS เต็มรูปแบบ |
+
+### ADR-007 — Android `connectedDevice` Service Type และ iOS Background `URLSession`
+
+| แพลตฟอร์ม | การตัดสินใจเชิงเทคนิค | เหตุผล |
+|---|---|---|
+| **Android 14/15** | ใช้ `android:foregroundServiceType="connectedDevice"` แทน `dataSync` | บน Android 15 `dataSync` ถูกจำกัดเวลารวม ~6 ชั่วโมง/วัน ขัดกับข้อกำหนด Foreground Service 24 ชม. ของ DropClip |
+| **Android 14+ QS** | ใช้ `PendingIntent` สำหรับ `startActivityAndCollapse` | ปฏิบัติตาม API requirement ของ Android 14 ป้องกัน SecurityException |
+| **iOS Share Ext** | ใช้ `URLSessionConfiguration.background(withIdentifier:)` + Cache ใน App Group | ควบคุม Peak RAM < 30 MB และป้องกัน extension ถูก Jetsam kill ระหว่างสตรีมไฟล์ 4 GB |
+
+### ADR-008 — ใช้ Hybrid Logical Clock (HLC) แทน Pure Lamport Clock
+
+| ปัญหาของ Pure Lamport | การแก้ปัญหาด้วย HLC |
+|---|---|
+| เมื่ออุปกรณ์ออฟไลน์ไปนานแล้วคัดลอกข้อมูลใหม่ ค่า Lamport clock จะต่ำ เมื่อเชื่อมต่อกลับมา ข้อมูลใหม่จะถูก LWW ทิ้งเพราะแพ้ clock เก่าของเครื่องอื่น | HLC ผสานเวลาจริง (Physical wall clock `l`) และตัวนับเชิงตรรกะ (`c`) ทำให้ข้อมูลที่คัดลอกใหม่บนเครื่องออฟไลน์มีค่าเวลาจริงสูงกว่าข้อมูลเก่าเสมอ และยังป้องกันปัญหานาฬิกาเครื่องคลาดเคลื่อน (Clock Drift) ได้อย่างสมบูรณ์ |
+
+### ADR-009 — ป้องกัน SAS MITM ด้วย Commit-then-Reveal Scheme
+
+| ช่องโหว่เดิม | วิธีแก้ปัญหา (Commit-then-Reveal) |
+|---|---|
+| ถ้าคำนวณจาก `H(fp_A ‖ fp_B ‖ nonce)` โดย nonce ส่งบนเครือข่าย ผู้โจมตี MITM สามารถ brute-force หา keypair จำลอง ~10⁶ ครั้งใน 60 วินาที เพื่อให้ได้ SAS 6 หลักตรงกัน | Client ส่ง Commitment `C_B = SHA-256(nonce_B ‖ fp_B)` ก่อน เมื่อ Host เปิดเผย `nonce_A` แล้ว Client จึงเปิดเผย `nonce_B` เพื่อคำนวณ SAS ทำให้ผู้โจมตีไม่สามารถ brute-force ย้อนหลังได้ สำหรับโหมด QR บังคับให้ `nonce_A` ส่งผ่านหน้าจอ (Out-Of-Band) เท่านั้น |
 
 ---
 

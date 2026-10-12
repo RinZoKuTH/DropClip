@@ -189,30 +189,36 @@ cap=clip.text,clip.image,clip.push,file,file.resume
 | Property | Value |
 |---|---|
 | Device ID | UUID v4 สร้างครั้งแรกที่เปิดแอป |
-| Key Algorithm | **Ed25519** |
-| Certificate | X.509 v3 self-signed, serial = 16 random bytes |
+| Key Algorithm | **ECDSA P-256 (secp256r1 / prime256v1)** — ตาม ADR-006 |
+| Signature Scheme | ECDSA with SHA-256 (RFC 5480) |
+| Certificate | X.509 v3 self-signed, serial = 16 random bytes (CSPRNG) |
 | Subject / Issuer CN | `dropclip-<device_id>` |
-| Validity | 10 ปี |
-| Fingerprint (`fp`) | `SHA-256(DER(cert))` lowercase hex |
-| Generation | ครั้งแรกเท่านั้น — ลบแอป/ติดตั้งใหม่ = identity ใหม่ (ไม่กู้ของเก่า) |
+| Validity | 10 ปี (Self-signed) |
+| Fingerprint (`fp`) | `SHA-256(DER(cert))` lowercase hex (64 ตัวอักษร) |
+| Generation | สร้างครั้งแรกใน Secure Storage เท่านั้น — ลบแอป/ติดตั้งใหม่ = identity ใหม่ (ไม่กู้ของเก่า) |
+
+> **เหตุผลในการเลือก ECDSA P-256 แทน Ed25519 (ADR-006):**
+> 1. **Android 10–12 Compatibility:** Android Keystore รองรับฮาร์ดแวร์ Keymaster/StrongBox สำหรับ Ed25519 ตั้งแต่ Android 13 (API 33) เท่านั้น ขณะที่ขอบเขตงาน DropClip กำหนดไว้ที่ Android 10+ (API 29+) ซึ่ง ECDSA P-256 รองรับครบถ้วนระดับฮาร์ดแวร์ตั้งแต่ Android 6+
+> 2. **iOS/macOS Security.framework:** `Security.framework` ของ Apple ไม่รองรับ Ed25519 ในการสร้าง `SecIdentity` สำหรับ client certificate mTLS ใน `URLSession` ของ Share Extension ทำให้ไม่สามารถทำ mTLS ข้าม process ได้หากใช้ Ed25519
+> 3. **BoringSSL / Dart Engine Interop:** Dart `SecureServerSocket` ทำงานร่วมกับ X.509 ECDSA P-256 certificate ได้อย่างสมบูรณ์แบบทั้งบน Client และ Server transport
 
 ### 4.2 Private Key Storage (NFR-S02)
 
-| OS | กลไก |
+| OS | กลไกจัดเก็บกุญแจส่วนตัว |
 |---|---|
-| macOS | Keychain (`kSecClassKey`/generic password, access: this device only) |
-| iOS | Keychain พร้อม **Keychain Access Group ร่วมกับ Share Extension** ผ่าน App Group |
-| Windows | DPAPI (`CurrentUser` scope) — เก็บเป็น blob ที่เข้ารหัสแล้วใน app data |
-| Android | Android Keystore — API 33+ MAY เก็บ Ed25519 ตรง; API 29–32 MUST ห่อ (wrap) private key ด้วย AES-256-GCM key ที่อยู่ใน AndroidKeyStore |
+| macOS | Keychain Services (`kSecClassKey` / EC Key, Access: This Device Only) |
+| iOS | Keychain Services พร้อม **Keychain Access Group** (`$(TeamID).com.dropclip.shared`) เพื่อให้ Share Extension เข้าถึง `SecIdentity` เดียวกันได้ |
+| Windows | DPAPI (`NCryptCreatePersistedKey` / CNG หรือ DPAPI `CurrentUser` scope) — เข้ารหัส blob บันทึกใน Local AppData |
+| Android | Android Keystore System (`KeyProperties.KEY_ALGORITHM_EC`, `ecSpec = 256`, StrongBox/TEE backed) — รองรับตั้งแต่ Android 10 (API 29) ถึง Android 14+ |
 
 > **Private key MUST NOT ปรากฏเป็น plaintext บนดิสก์ในทุกกรณี** — มี automated security test (grep หา PEM/DER/`BEGIN PRIVATE KEY` ทั้ง app data directory)
 
 ### 4.3 TLS Requirements (NFR-S01)
 
-- MUST ใช้ **TLS 1.3 เท่านั้น** — MUST reject TLS 1.2 และต่ำกว่า (กัน downgrade)
+- MUST ใช้ **TLS 1.3 เท่านั้น** — MUST reject TLS 1.2 และต่ำกว่า (ป้องกัน downgrade attack)
 - Cipher suites ที่อนุญาต: `TLS_AES_128_GCM_SHA256`, `TLS_AES_256_GCM_SHA384`, `TLS_CHACHA20_POLY1305_SHA256`
-- MUST เป็น **mutual TLS** — server MUST request client certificate ทุก connection
-- MUST verify peer ด้วย **SHA-256 fingerprint pinning** ไม่ใช้ CA chain
+- MUST เป็น **mutual TLS (mTLS)** — server MUST request client certificate ทุก connection
+- MUST verify peer ด้วย **SHA-256 fingerprint pinning** ไม่พึ่งพา External CA chain
 
 ### 4.4 Pinning Logic
 
@@ -236,9 +242,7 @@ if (!trustedStore.containsFingerprint(fp)) {
 
 > **เหตุผลที่ตรวจที่ application layer:** เพื่อให้ตอบ HTTP 403 + error code ได้ตาม FR-08 และ FR-11 แทนการตัด handshake เงียบ ๆ ซึ่ง debug ยาก
 
-**ข้อยกเว้นเดียว:** `POST /api/v1/pair` และ `POST /api/v1/pair/confirm` อนุญาต client cert ที่ยังไม่ trusted ได้ แต่ MUST มี rate limit (§5.6) และ MUST ผ่าน SAS (§5.5)
-
-> ⚠️ **Open Issue — Spike S0.1:** ต้องพิสูจน์ว่า Dart `SecureServerSocket`/`HttpClient` (BoringSSL), Apple Network.framework (Share Extension) และ Android รองรับ TLS 1.3 + Ed25519 self-signed + mutual auth ครบ หากไม่ได้ ทางเลือกสำรองคือ **ECDSA P-256** ซึ่ง MUST บันทึกเป็น ADR-006 และยื่น SRS Change Request (SRS ระบุ Ed25519)
+**ข้อยกเว้นเดียว:** `POST /api/v1/pair` และ `POST /api/v1/pair/confirm` อนุญาต client cert ที่ยังไม่ trusted ได้ แต่ MUST มี rate limit (§5.6) และ MUST ผ่านกระบวนการ Commit-then-Reveal SAS (§5.4, §5.5)
 
 ---
 
@@ -250,19 +254,21 @@ if (!trustedStore.containsFingerprint(fp)) {
 
 | Field | ค่า |
 |---|---|
-| `nonce` | 16 random bytes (CSPRNG) |
+| `nonce_A` | 16 random bytes (CSPRNG) — Host Nonce |
 | `pin` | 6 หลักสุ่ม (CSPRNG) `000000–999999` |
 | `exp` | `now + PAIR_NONCE_TTL` (60 s) |
-| `state` | `open` → `claimed` → `paired` \| `failed` \| `expired` |
+| `state` | `open` → `committed` → `paired` \| `failed` \| `expired` |
 
-Host MUST แสดงทั้ง **QR Code และ PIN** บนหน้าจอเดียวกัน (UI-03) และ session เป็นแบบ **single-use** — `/pair` ที่สำเร็จครั้งแรกทำให้ session เป็น `claimed` และ request ถัดไปถูกปฏิเสธ
+Host MUST แสดงทั้ง **QR Code และ PIN** บนหน้าจอเดียวกัน (UI-03) และ session เป็นแบบ **single-use** — `/pair` ที่ได้รับ Commitment สำเร็จครั้งแรกทำให้ session เปลี่ยนเป็น `committed` และคำขอจับคู่อื่นจะถูกปฏิเสธทันที
 
-### 5.2 Pairing Modes
+### 5.2 Pairing Modes & Cryptographic Commitment (ADR-009)
 
-| Mode | ใช้เมื่อ | Client รู้ `fp` ของ Host ล่วงหน้า? | `nonce` ที่ใช้ |
+เพื่อป้องกันการโจมตี Active MITM Brute-Force Keypair ให้ SAS 6 หลักตรงกัน ระบบใช้สถาปัตยกรรม **Commit-then-Reveal Scheme**:
+
+| Mode | ใช้เมื่อ | ช่องทางส่ง `nonce_A` | กลไก Commitment |
 |---|---|---|---|
-| `qr` | มือถือสแกน QR จาก Desktop | ✅ (จาก QR) → pin ได้ทันที | `nonce` จาก QR |
-| `pin` | Desktop ↔ Desktop (เลือกจากรายการ Discovered) หรือ Manual IP | ❌ → พึ่ง SAS อย่างเดียว | `pin_nonce = SHA-256("dropclip-pin-v1:" ‖ pin)[0:16]` |
+| `qr` | มือถือสแกน QR จาก Desktop | **Out-Of-Band (OOB)** ผ่านหน้าจอเท่านั้น — ป้องกันผู้โจมตีบนเครือข่ายดักจับ | Client ส่ง `commitment_B = SHA-256("dropclip-commit-v1:" ‖ nonce_B ‖ fp_B)` ใน `/pair` แล้วเปิดเผย `nonce_B` ใน `/confirm` |
+| `pin` | Desktop ↔ Desktop หรือกรอก Manual IP | ผู้ใช้ดู PIN 6 หลักบนหน้าจอ Host แล้วกรอกลง Client | Client คำนวณ `pin_nonce_A = SHA-256("dropclip-pin-v1:" ‖ pin)[0:16]` พร้อมส่ง `commitment_B` ก่อนเปิดเผย `nonce_B` |
 
 ### 5.3 QR Payload
 
@@ -278,53 +284,64 @@ Host MUST แสดงทั้ง **QR Code และ PIN** บนหน้า�
   "exp": 1757280060000
 }
 ```
-Encode เป็น JSON (UTF-8) แล้วสร้าง QR ที่ error correction level **M**
+- `nonce` คือ `nonce_A` ที่ส่งผ่าน Visual Out-of-band Channel เท่านั้น
+- Encode เป็น JSON (UTF-8) แล้วสร้าง QR ที่ error correction level **M**
 
-### 5.4 Flow
+### 5.4 Flow (Commit-then-Reveal)
 
 ```
 Device A — Host (แสดง QR + PIN)                         Device B — Client (สแกน QR / กรอก PIN)
-  │ 1. สร้าง session {nonce, pin, exp=+60s}                  │
-  │ 2. แสดง QR + PIN ──────────────────────────────────────▶ │
-  │                                                          │ 3. TLS 1.3 (mTLS ด้วย cert ของ B)
+  │ 1. สร้าง session {nonce_A, pin, exp=+60s}                │
+  │ 2. แสดง QR + PIN บนหน้าจอ (OOB) ───────────────────────▶ │
+  │                                                          │ 3. Client สุ่ม nonce_B (16 bytes)
+  │                                                          │    คำนวณ C_B = SHA-256("dropclip-commit-v1:" ‖ nonce_B ‖ fp_B)
+  │                                                          │ 4. TLS 1.3 (mTLS ด้วย cert ECDSA P-256 ของ B)
   │                                                          │    mode=qr: pin server fp = QR.fp
-  │◀──────────── 4. POST /api/v1/pair ───────────────────────│
-  │   {v, device_id, name, os, tier, fp, nonce, method}       │
-  │ 5. ตรวจ: rate limit, session open, ยังไม่หมดอายุ,         │
-  │    nonce ตรง (nonce หรือ pin_nonce), v ตรง,               │
-  │    body.fp == SHA-256(client TLS cert)                    │
-  │──────────── 6. 200 {pair_id, device_id, name, os, tier, fp} ─▶│
-  │                                                          │ 7. ตรวจ body.fp == server TLS cert fp
-  │ 8. ทั้งสองฝั่งคำนวณ SAS เอง (§5.5) แล้วแสดงตัวเลขใหญ่ 6 หลัก │
+  │◀──────────── 5. POST /api/v1/pair ───────────────────────│
+  │   {v, device_id, name, os, tier, fp, commitment_B,       │
+  │    nonce_A (หรือ pin_nonce_A), method}                   │
+  │ 6. ตรวจ: rate limit, session open, exp > now,            │
+  │    nonce_A ตรง, body.fp == SHA-256(client cert)          │
+  │    บันทึก commitment_B, ปรับ state = committed            │
+  │──────────── 7. 200 {pair_id, device_id, name, os, tier, fp} ─▶│
+  │                                                          │ 8. ตรวจ body.fp == server TLS cert fp
+  │                                                          │ 9. Client เปิดเผย nonce_B
+  │◀──────────── 10. POST /api/v1/pair/confirm ──────────────│
+  │   {pair_id, nonce_B}                                     │
+  │ 11. ตรวจสอบ Commitment:                                  │
+  │     SHA-256("dropclip-commit-v1:" ‖ nonce_B ‖ fp_B)      │
+  │     == commitment_B (ไม่ตรง → 401 E_PAIRING_INVALID)     │
+  │ 12. ทั้งสองฝั่งคำนวณ SAS อิสระจาก (§5.5):                │
+  │     SAS(fp_A, fp_B, nonce_A, nonce_B)                    │
+  │     แสดงตัวเลขใหญ่ 6 หลักบนหน้าจอทั้งสองเครื่อง          │
   │          [ผู้ใช้เทียบตัวเลขด้วยตา แล้วกด "ตรงกัน"/"ไม่ตรง" ทั้งสองเครื่อง]   │
-  │◀──────────── 9. POST /api/v1/pair/confirm ───────────────│
-  │   {pair_id, result: "match" | "mismatch"}                 │
-  │   (long-poll จนผู้ใช้ฝั่ง A ตัดสิน, ≤ PAIR_CONFIRM_TIMEOUT)   │
-  │──────────── 10. 200 {result: "paired"} | 401 E_SAS_FAILED ─▶│
-  │ 11. ทั้งคู่บันทึกลง Trusted Store (E-02) เฉพาะเมื่อ "paired"   │
-  │                                                          │ 12. B เปิด WS ตาม §6 ทันที
+  │◀──────────── 13. POST /api/v1/pair/finalize ─────────────│
+  │   {pair_id, result: "match" | "mismatch"}                │
+  │──────────── 14. 200 {result: "paired"} | 401 E_SAS_FAILED ─▶│
+  │ 15. ทั้งคู่บันทึกลง Trusted Store (E-02) เฉพาะเมื่อ "paired" │
+  │                                                          │ 16. B เปิด WS ตาม §6 ทันที
 ```
 
-**กฎ:**
-- Host MUST NOT ส่งค่า SAS ใน response — ทั้งสองฝั่ง MUST คำนวณ SAS เองอย่างอิสระ
-- ผลลัพธ์เป็น `paired` ก็ต่อเมื่อ **ผู้ใช้ทั้งสองฝั่งกด "ตรงกัน"** เท่านั้น
-- ถ้าฝั่งใดกด "ไม่ตรง" หรือหมดเวลา → ทั้งสองฝั่ง MUST ทิ้ง session และ MUST NOT บันทึกอะไรลง Trusted Store
-- Host MUST นับ "ไม่ตรง" เป็น failed attempt ของ IP ฝั่ง Client (§5.6)
+**กฎเหล็ก:**
+- Host MUST NOT ส่งค่า SAS ใน response ใด ๆ — ทั้งสองฝั่ง MUST คำนวณ SAS เองอย่างอิสระ
+- ผลลัพธ์เป็น `paired` ก็ต่อเมื่อ **ผู้ใช้ทั้งสองฝั่งกดยืนยัน "ตรงกัน"** เท่านั้น
+- ถ้าฝั่งใดกด "ไม่ตรง", ค่า Commitment ตรวจสอบไม่ผ่าน, หรือหมดเวลา → ทั้งสองฝั่ง MUST ทำลาย session และ MUST NOT บันทึกอะไรลง Trusted Store
+- Host MUST นับกรณี "ไม่ตรง" หรือ commitment ล้มเหลวเป็น failed attempt ของ IP ฝั่ง Client (§5.6)
 
-### 5.5 Short Authentication String (SAS)
+### 5.5 Short Authentication String (SAS) Calculation
 
 ```
-fp_lo, fp_hi = sort_ascending([fp_A, fp_B])              // เทียบเป็น string lowercase hex
-sas_input    = UTF8(fp_lo) ‖ UTF8(fp_hi) ‖ nonce_bytes    // 64 + 64 + 16 = 144 bytes
+fp_lo, fp_hi = sort_ascending([fp_A, fp_B])              // เทียบเป็น string lowercase hex (64 chars)
+sas_input    = UTF8(fp_lo) ‖ UTF8(fp_hi) ‖ nonce_A ‖ nonce_B // 64 + 64 + 16 + 16 = 160 bytes
 sas_hash     = SHA-256(sas_input)
 sas_value    = uint32_big_endian(sas_hash[0..3]) mod 1_000_000
 sas_display  = zero-pad 6 หลัก เช่น "042817" (UI MAY แสดงเป็น "042 817")
 ```
 
-- `nonce_bytes` = ค่า `nonce` ที่ decode แล้ว (mode `qr`) หรือ `pin_nonce` (mode `pin`)
-- **ทำไมต้อง sort:** ให้ทั้งสองฝ่ายได้ค่าเดียวกันโดยไม่ขึ้นกับว่าใครเริ่ม
-- **ทำไมต้องมี SAS:** ถ้ามี MITM แทรกกลาง fingerprint ที่แต่ละฝั่งเห็นจะต่างกัน → เลข 6 หลักไม่ตรง → ผู้ใช้เห็นทันที (แนวคิดเดียวกับ ZRTP)
-- Test vectors: §18.1, §18.2
+- `nonce_A` = Host CSPRNG nonce (16 bytes)
+- `nonce_B` = Client CSPRNG nonce (16 bytes) ที่ผ่านการ Verify Commitment แล้ว
+- `sort_ascending`: รับประกันว่าไม่ว่าจะคำนวณจากฝั่ง Host หรือ Client จะได้ลำดับ bytes ของ input เดียวกัน 100%
+- **ระดับความปลอดภัยของ Commit-then-Reveal:** แม้ผู้โจมตี MITM จะดักฟังเครือข่ายได้ แต่ไม่สามารถคำนวณสุ่ม keypair ให้เกิด SAS ชนกันได้อีกต่อไป เพราะ Client ได้ผูกมัดค่า $fp_B$ และ $nonce_B$ ไว้ล่วงหน้าใน Commitment $C_B$ ก่อนที่กระบวนการแลกเปลี่ยนจะเสร็จสิ้น และไม่สามารถเปลี่ยนค่าได้ในภายหลัง
 
 ### 5.6 Rate Limiting & Lockout
 
@@ -355,17 +372,19 @@ wss://<ip>:<port>/api/v1/ws        (mTLS + pinning ตาม §4)
 ### 6.3 Session Handshake
 
 1. หลัง WS upgrade ผู้เริ่ม MUST ส่ง `hello` ภายใน `HELLO_TIMEOUT` (5 s) มิฉะนั้นผู้รับ MUST ปิดด้วย `4000`
-2. ผู้รับตอบ `hello.ack` — ทั้งสองฝ่าย MUST merge clock: `clock = max(clock, remote.clock) + 1`
+2. ผู้รับตอบ `hello.ack` — ทั้งสองฝ่าย MUST merge Hybrid Logical Clock (HLC): `hlc = hlc.merge(remote.hlc)` (§10)
 3. หลัง handshake ทั้งสองฝ่ายทำ **Catch-up** ตาม §10.7 แล้ว flush Outbound Queue (§6.6)
 4. ข้อความอื่นใดที่มาก่อน `hello`/`hello.ack` MUST ถูกตอบด้วย `E_MALFORMED` และปิด connection
 
-### 6.4 Heartbeat
+### 6.4 Heartbeat & Authoritative Liveness
 
 | Parameter | Value |
 |---|---|
 | ทั้งสองฝ่ายส่ง `ping` ทุก | `PING_INTERVAL` = 15 s |
 | ถือว่า connection ตายเมื่อไม่ได้รับ **ข้อความใด ๆ** นาน | `PONG_TIMEOUT` = 45 s (= 3 ping ที่หายไป) |
 | เมื่อ timeout | ปิด socket (close code `4008`) แล้วเข้าสู่ reconnect backoff |
+
+> **Authoritative Liveness Rule:** สำหรับอุปกรณ์ที่อยู่ในสถานะ `CONNECTED` บน WebSocket ให้ถือเอาสถานะ Heartbeat (`PONG_TIMEOUT` = 45 s) เป็นตัวตัดสินความมีชีวิต (Authoritative Liveness) แต่เพียงผู้เดียว โดยเพิกเฉยต่อสถานะ mDNS Stale 30 s ซึ่งมีไว้สำหรับโหนดที่ยังไม่ได้เชื่อมต่อ (Unconnected Nodes) เท่านั้น
 
 ### 6.5 Reconnect Backoff
 
@@ -395,7 +414,7 @@ wss://<ip>:<port>/api/v1/ws        (mTLS + pinning ตาม §4)
 
 ## 7. Control Plane Messages
 
-### 7.1 Message Envelope
+### 7.1 Message Envelope (ADR-008 — HLC Support)
 
 ทุกข้อความบน WebSocket MUST อยู่ในรูปนี้:
 
@@ -405,7 +424,11 @@ wss://<ip>:<port>/api/v1/ws        (mTLS + pinning ตาม §4)
   "type": "clipboard.update",
   "msg_id": "6f1c2c1e-6a43-4c4e-9d0c-0b6f3a5b1e27",
   "origin": "550e8400-e29b-41d4-a716-446655440000",
-  "clock": 1428,
+  "hlc": {
+    "l": 1757280000000,
+    "c": 0,
+    "d": "550e8400-e29b-41d4-a716-446655440000"
+  },
   "ts": 1757280000000,
   "payload": { }
 }
@@ -413,12 +436,12 @@ wss://<ip>:<port>/api/v1/ws        (mTLS + pinning ตาม §4)
 
 | Field | Type | Required | คำอธิบาย |
 |---|---|---|---|
-| `v` | int | ✅ | Protocol version |
+| `v` | int | ✅ | Protocol version (1) |
 | `type` | string | ✅ | ตาม §7.2 |
 | `msg_id` | uuid | ✅ | ไม่ซ้ำต่อข้อความ — ใช้ dedup |
 | `origin` | uuid | ✅ | **อุปกรณ์ที่สร้างข้อมูลจริง ไม่ใช่ผู้ส่งต่อ** |
-| `clock` | int | ✅ | Lamport logical clock ณ เวลาสร้างข้อความ |
-| `ts` | int64 | ✅ | Wall clock — ใช้แสดงผลและวัด latency เท่านั้น **MUST NOT ใช้ตัดสิน ordering** |
+| `hlc` | object | ✅ | Hybrid Logical Clock `{ "l": int64, "c": int, "d": string }` ณ เวลาสร้างข้อความ |
+| `ts` | int64 | ✅ | Wall clock (ms) — ใช้แสดงผลและวัด latency เท่านั้น **MUST NOT ใช้ตัดสิน ordering** |
 | `payload` | object | ✅ | ตาม `type` |
 
 > ⚠️ **`origin` คือหัวใจของ loop prevention** อย่าสับสนกับ transport-level sender
@@ -439,7 +462,8 @@ wss://<ip>:<port>/api/v1/ws        (mTLS + pinning ตาม §4)
 | `file.progress` | receiver → sender | ความคืบหน้าที่เขียนลงดิสก์แล้ว | FR-07 |
 | `file.complete` | receiver → sender | transfer เข้าสถานะสุดท้าย | FR-08 |
 | `file.cancel` | bidirectional | ยกเลิก transfer | FR-07 |
-| `device.revoked` | revoker → revoked | แจ้งว่าถูกเพิกถอน | FR-11 |
+| `device.revoked` | revoker → revoked | แจ้งเตือนเครื่องเป้าหมายว่าถูกเพิกถอน | FR-11 |
+| `cluster.revocation` | bidirectional / gossip | กระจายคำสั่งเพิกถอนพร้อมลายเซ็น ECDSA ไปยังทุก Peer | FR-11, SF-08 |
 | `ping` / `pong` | bidirectional | heartbeat | FR-10 |
 | `error` | bidirectional | แจ้งข้อผิดพลาด | — |
 
@@ -447,7 +471,7 @@ wss://<ip>:<port>/api/v1/ws        (mTLS + pinning ตาม §4)
 
 - ข้อความทุกประเภทยกเว้น `error` MUST มาจาก peer ที่ผ่าน `hello` แล้ว
 - ผู้รับ MUST dedup ด้วย `msg_id` (LRU `SEEN_MSG_CACHE` = 200 entries ต่อเครื่อง)
-- ผู้รับ MUST merge Lamport clock ทุกครั้งที่ได้รับข้อความ (ทุก type)
+- ผู้รับ MUST merge Hybrid Logical Clock (HLC) ทุกครั้งที่ได้รับข้อความ (ทุก type) ตาม §10.1
 
 ### 7.4 Payload Schemas
 
@@ -582,11 +606,34 @@ Reason ที่อนุญาต: `user_declined` | `insufficient_space` | `un
 
 #### 7.4.9 `device.revoked`
 
+ส่งตรงไปยังโหนดที่ถูกเพิกถอน (Direct Unicast):
 ```json
-{ "device_id": "<id ของผู้เพิกถอน>", "reason": "user_revoked" }
+{
+  "device_id": "550e8400-e29b-41d4-a716-446655440000",
+  "target_device_id": "b2c3d4e5-6a7b-8c9d-0e1f-2a3b4c5d6e7f",
+  "reason": "user_revoked"
+}
 ```
 
-#### 7.4.10 `ping` / `pong`
+#### 7.4.10 `cluster.revocation` (Signed Cluster-Wide Broadcast)
+
+กระจายคำสั่งเพิกถอนไปยังทุกโหนดที่เชื่อถือในคลัสเตอร์ (Gossip Flooding):
+```json
+{
+  "revocation_token": {
+    "revoker_id": "550e8400-e29b-41d4-a716-446655440000",
+    "revoked_id": "b2c3d4e5-6a7b-8c9d-0e1f-2a3b4c5d6e7f",
+    "revoked_fp": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
+    "timestamp": 1757280000000,
+    "signature": "MEUCIQC...<base64 ECDSA P-256 signature>..."
+  }
+}
+```
+- `signature` สร้างจาก Private Key ของ `revoker_id` เซ็นครอบคลุมสตริง:
+  `UTF8("dropclip-revoke-v1:" ‖ revoker_id ‖ ":" ‖ revoked_id ‖ ":" ‖ revoked_fp ‖ ":" ‖ timestamp)`
+- โหนดผู้รับ MUST ตรวจสอบว่า `revoker_id` เป็นโหนดที่ตนเชื่อถือ (อยู่ใน Trusted Store) และ verify ลายเซ็นผ่านก่อน จึงยอมรับและเพิกถอน `revoked_fp`
+
+#### 7.4.11 `ping` / `pong`
 
 ```json
 { "seq": 42 }
@@ -798,14 +845,14 @@ final bytes = await request.readAsBytes();
 
 | ตัวแปร | Type | Persist? | คำอธิบาย |
 |---|---|---|---|
-| `_clock` | int | ✅ (`state.json`) | Lamport clock — MUST persist ทุกครั้งที่ `++` จาก local event; merge จาก remote persist แบบ debounce ≤ 1 s |
-| `_head` | ClipEntry? | ⬜ | รายการล่าสุดที่ยอมรับ `{clock, origin, hash, msg_id, content_type, ttl, data}` |
+| `_hlc` | Hlc | ✅ (`state.json`) | Hybrid Logical Clock `{ "l": int64, "c": int, "d": string }` — MUST persist ทุกครั้งที่ tick จาก local event; merge จาก remote persist แบบ debounce ≤ 1 s |
+| `_head` | ClipEntry? | ⬜ | รายการล่าสุดที่ยอมรับ `{hlc, origin, hash, msg_id, content_type, ttl, data}` |
 | `_lastAppliedHash` | hex? | ⬜ | hash ของข้อมูลที่ DropClip เพิ่งเขียนลง OS clipboard |
 | `_suppressUntil` | DateTime | ⬜ | หมดเวลา suppression window |
 | `_seenMsgIds` | LRU(200) | ⬜ | dedup |
 | `_history` | Ring(20) | ⬜ | Catch-up queue (E-04) |
 
-> **ทำไม `_clock` ต้อง persist:** ถ้ารีสตาร์ตแล้วเริ่มที่ 0 การ copy ครั้งแรกจะได้ clock ต่ำกว่า `_head` ของ peer และถูก LWW ทิ้งเงียบ ๆ
+> **ทำไมต้องใช้ HLC แทน Pure Lamport (ADR-008):** ถือเครื่องออฟไลน์ไปนานหลายชั่วโมง แล้วผู้ใช้คัดลอกข้อมูลใหม่บนเครื่องนั้น หากใช้ Pure Lamport ค่า clock จะยังต่ำกว่าอุปกรณ์อื่นที่ซิงก์กันอยู่ เมื่อเชื่อมต่อกลับมา ข้อมูลใหม่จะถูก LWW ทิ้งเงียบ ๆ เพราะแพ้ clock เก่า! แต่ HLC ผสานเวลาจริงของเครื่อง (`l`) ทำให้การคัดลอกใหม่บนเครื่องออฟไลน์มีค่า `l` สูงกว่าเสมอ และชนะ LWW ตามที่ผู้ใช้คาดหวังอย่างถูกต้อง ขณะที่ตัวนับ `c` ยังทำหน้าที่แก้ปัญหาหากเกิดเหตุการณ์ภายในมิลลิวินาทีเดียวกัน
 
 ### 10.2 Outbound — เมื่อ clipboard ในเครื่องเปลี่ยน (FR-03A, FR-04 ขาส่ง)
 
@@ -834,13 +881,26 @@ void onLocalClipboardChanged(ClipboardEvent e) {
   final useBlob = raw.length > CLIPBOARD_INLINE_THRESHOLD;
   final blobId = useBlob ? _blobStore.put(raw, ttl: BLOB_TTL) : null;
 
-  // Step 4: Clock แล้ว broadcast ไปทุก peer ที่ CONNECTED (offline → Outbound Queue)
-  _clock++; persistClock();
-  final env = Envelope(type: 'clipboard.update', origin: myId, clock: _clock, payload: ClipboardPayload(
-    contentType: e.contentType, hash: hash, size: raw.length, isConcealed: false,
-    ttlSeconds: config.clipboardTtlSeconds,
-    inline: useBlob ? null : base64(raw), blobId: blobId, meta: e.imageMeta,
-  ));
+  // Step 4: Advance HLC แล้ว broadcast ไปทุก peer ที่ CONNECTED (offline → Outbound Queue)
+  _hlc = _hlc.tick(now().millisecondsSinceEpoch);
+  persistHlc();
+
+  final env = Envelope(
+    type: 'clipboard.update',
+    origin: myId,
+    hlc: _hlc,
+    ts: now().millisecondsSinceEpoch,
+    payload: ClipboardPayload(
+      contentType: e.contentType,
+      hash: hash,
+      size: raw.length,
+      isConcealed: false,
+      ttlSeconds: config.clipboardTtlSeconds,
+      inline: useBlob ? null : base64(raw),
+      blobId: blobId,
+      meta: e.imageMeta,
+    ),
+  );
   _accept(env, raw);                               // ตั้ง _head + _history
   if (env.payload.ttlSeconds != null) _scheduleClear(hash, env.payload.ttlSeconds!);
   broadcast(env, onlyTo: peers.where((p) => p.supports(e.contentType)));
@@ -851,62 +911,74 @@ void onLocalClipboardChanged(ClipboardEvent e) {
 
 ```dart
 Future<void> onRemoteClipboardUpdate(Envelope env, Peer sender) async {
-  // Step 1: Lamport merge — MUST ทำก่อนอย่างอื่นเสมอ
-  _clock = max(_clock, env.clock) + 1;
+  final nowMs = now().millisecondsSinceEpoch;
 
-  // Step 2: ทิ้งข้อมูลที่ตัวเองสร้าง (กัน loop)
+  // Step 1: ป้องกัน Clock Drift ผิดปกติเกินขอบเขตยอมรับ (MAX_CLOCK_DRIFT = 60 วินาที)
+  if (env.hlc.l - nowMs > MAX_CLOCK_DRIFT_MS) {
+    log.warn('clipboard.clock_drift_exceeded', {'remote_l': env.hlc.l, 'local_ms': nowMs});
+    return; // ป้องกัน remote node ที่ตั้งนาฬิกาอนาคตเข้ายึด LWW
+  }
+
+  // Step 2: HLC merge — MUST ทำก่อนอย่างอื่นเสมอ
+  _hlc = _hlc.merge(env.hlc, nowMs);
+
+  // Step 3: ทิ้งข้อมูลที่ตัวเองสร้าง (กัน loop)
   if (env.origin == myId) return;
 
-  // Step 3: Dedup ด้วย msg_id (กันส่งซ้ำจาก reconnect / outbound queue)
+  // Step 4: Dedup ด้วย msg_id (กันส่งซ้ำจาก reconnect / outbound queue)
   if (!_seenMsgIds.addIfAbsent(env.msgId)) return;
 
-  // Step 4: Policy — ปิดซิงก์ / type ไม่อนุญาต / concealed → ทิ้ง
+  // Step 5: Policy — ปิดซิงก์ / type ไม่อนุญาต / concealed → ทิ้ง
   if (!config.clipboardSyncEnabled || !config.allows(env.payload.contentType)) return;
   if (env.payload.isConcealed) return;
 
-  // Step 5: Last-Writer-Wins + deterministic tie-break
+  // Step 6: Last-Writer-Wins ด้วยการเปรียบเทียบ HLC (l, c, d)
   if (_head != null) {
-    if (env.clock < _head.clock) return;
-    if (env.clock == _head.clock && env.origin.compareTo(_head.origin) < 0) return;
+    if (env.hlc.compareTo(_head.hlc) < 0) {
+      log.debug('clipboard.dropped_stale_hlc');
+      return; // ข้อมูลนี้เก่ากว่า _head ปัจจุบัน
+    }
   }
 
-  // Step 6: ได้ raw bytes
+  // Step 7: ได้ raw bytes
   final raw = env.payload.blobId != null
       ? await fetchBlob(sender, env.payload.blobId!)        // GET /api/v1/blob/{id}
       : base64Decode(env.payload.inline!);
 
-  // Step 7: Integrity + validation (magic bytes ของรูป — §11.3)
+  // Step 8: Integrity + validation (magic bytes ของรูป — §11.3)
   if (sha256(raw) != env.payload.hash) return sendError(sender, 'E_CHECKSUM_MISMATCH', env);
   if (!FormatNormalizer.validate(raw, env.payload.contentType)) return sendError(sender, 'E_MALFORMED', env);
 
   _accept(env, raw);
 
-  // Step 8: Tier 3 (iOS) — เก็บไว้รอ foreground/Widget เท่านั้น (§10.6)
+  // Step 9: Tier 3 (iOS) — เก็บไว้รอ foreground/Widget เท่านั้น (§10.6)
   if (!myCapabilities.contains('clip.push')) return;
 
-  // Step 9: ตั้ง suppression ก่อนเขียน — ลำดับสำคัญมาก
+  // Step 10: ตั้ง suppression ก่อนเขียน — ลำดับสำคัญมาก
   _lastAppliedHash = env.payload.hash;
   _suppressUntil = now().add(SUPPRESSION_WINDOW);           // 800 ms
 
-  // Step 10: แปลงเป็นรูปแบบ native แล้วเขียนลง OS clipboard (retry ตาม §14.1)
+  // Step 11: แปลงเป็นรูปแบบ native แล้วเขียนลง OS clipboard (retry ตาม §14.1)
   await clipboard.write(FormatNormalizer.toNative(raw, env.payload.contentType, myOs));
 
-  // Step 11: TTL
+  // Step 12: TTL
   if (env.payload.ttlSeconds != null) _scheduleClear(env.payload.hash, env.payload.ttlSeconds!);
 }
 ```
 
-### 10.4 Sensitive Content Filter (FR-05)
+### 10.4 Sensitive Content Filter (FR-05, NFR-S04)
 
-| OS | สัญญาณ concealed | การกระทำของ Native layer |
+ระบบต้องทำการกรองข้อมูลที่ถูกตั้งค่าเป็นข้อมูลลับอย่างเข้มงวด โดยระบุ Marker ชัดเจนระดับ OS:
+
+| OS | สัญญาณ concealed / Sensitive Markers | การกระทำของ Native layer |
 |---|---|---|
-| macOS | Pasteboard type `org.nspasteboard.ConcealedType` (และ `org.nspasteboard.TransientType`) | ส่ง event `is_concealed: true` **โดยไม่อ่านเนื้อหา** |
-| Windows | Clipboard format `ExcludeClipboardContentFromMonitorProcessing` หรือ `CanIncludeInClipboardHistory` = 0 | เช่นเดียวกัน |
-| Android | `ClipDescription.getExtras()` มี `android.content.extra.IS_SENSITIVE` = true | ยกเลิกการส่งออก |
-| iOS | — (ส่งออกเฉพาะเมื่อผู้ใช้สั่งชัดเจนผ่าน Share Extension) | ไม่เกี่ยว |
+| macOS | Pasteboard type `org.nspasteboard.ConcealedType`, `org.nspasteboard.TransientType`, `org.nspasteboard.AutoGeneratedType` | ส่ง event `is_concealed: true` **โดยไม่อ่านเนื้อหา** |
+| Windows | Registered format `ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory` = 0, `CanUploadToCloudStore` = 0 | ส่ง event `is_concealed: true` **โดยไม่อ่านเนื้อหา** |
+| Android | `ClipDescription.EXTRA_IS_SENSITIVE` (`android.content.extra.IS_SENSITIVE` = true) หรือ flag `ClipDescription.CLASSIFICATION_NOT_COMPLETE` | ยกเลิกการอ่าน/ส่งออกทันที |
+| iOS | Sandboxed — เข้าถึงได้เฉพาะเมื่อผู้ใช้เลือกกดส่งผ่าน Share Extension โดยเจตนา | กรองตาม user intent |
 
-- Log ได้เฉพาะ `{type, size}` — MUST NOT log เนื้อหา/hash ของข้อมูล concealed
-- Concealed content MUST NOT ออกจากเครื่องต้นทาง **100%** (NFR-S04)
+- Log ได้เฉพาะ `{type, size}` — MUST NOT log เนื้อหาหรือคำนวณ hash ของข้อมูล concealed
+- ระบบ MUST กรองข้อมูลที่มี **Known OS Sensitive Marker ดังกล่าวได้ 100%** (NFR-S04) จากการทดสอบคัดลอกจาก Password Managers (1Password, Bitwarden, KeePassXC, Apple Keychain) และโหมด Private Browsing
 
 ### 10.5 ทำไมต้องมีทั้ง hash และ time window
 
@@ -1024,27 +1096,54 @@ Sender                                                Receiver
 7. **Security:** macOS MUST ตั้ง `com.apple.quarantine`; Windows SHOULD เขียน Mark-of-the-Web (`Zone.Identifier`, `ZoneId=3`); **ทุก OS MUST NOT เปิดหรือ execute ไฟล์อัตโนมัติ**
 8. มือถือ: รูป/วิดีโอ → `MediaStore` (Android) / `PhotoKit` add-only (iOS); อื่น ๆ → Downloads / Files (SW-03)
 
-### 12.4 Resume Rules (FR-09)
+### 12.4 Resume Rules & 64 MiB Checkpoints (FR-09)
 
-1. เมื่อเชื่อมต่อกลับมา ผู้ส่ง MUST เรียก `GET /status` ของ item ที่ยังไม่ `complete`
-2. ผู้รับ truncate `.part` ลงขอบ chunk, **rehash prefix ที่มีอยู่แบบ streaming** เพื่อกู้ hasher state แล้วตอบ `offset` + `last_chunk_sha256`
-3. ผู้ส่งคำนวณ SHA-256 ของ chunk เดียวกันจากไฟล์ต้นทาง → ตรง: `POST` ด้วย `X-Offset: offset`; ไม่ตรง: `POST` ด้วย `X-Offset: 0` (เริ่ม item ใหม่)
-4. ตรวจ SHA-256 ทั้งไฟล์เป็นขั้นตอนสุดท้ายเสมอ
-5. `.part` ที่ค้างเกิน `PARTIAL_RETENTION` (24 ชม.) MUST ถูกลบตอนเปิดแอป
+1. เมื่อเชื่อมต่อกลับมา ผู้ส่ง MUST เรียก `GET /api/v1/file/{t}/{i}/status` ของ item ที่ยังไม่ `complete`
+2. **Sidecar Checkpointing:** ผู้รับบันทึก Checkpoint ลงใน sidecar `<item_id>.part.json` ทุก ๆ `CHECKPOINT_INTERVAL` = 64 MiB (67,108,864 bytes) ประกอบด้วย `{ offset, sha256_prefix }`
+3. ผู้รับ truncate `.part` ลงขอบ chunk (1 MiB), กู้คืน hasher state จาก checkpoint ล่าสุดใน sidecar และ streaming rehash เฉพาะส่วนต่างระหว่าง checkpoint ล่าสุดถึง offset ปัจจุบัน (ช่วยลดเวลา recovery จากระดับสิบวินาทีเหลือ < 200 ms) แล้วตอบ `offset` + `last_chunk_sha256`
+4. ผู้ส่งคำนวณ SHA-256 ของ chunk เดียวกันจากไฟล์ต้นทาง → ตรง: `POST` ด้วย `X-Offset: offset`; ไม่ตรง: `POST` ด้วย `X-Offset: 0` (เริ่ม item ใหม่)
+5. ตรวจ SHA-256 ทั้งไฟล์เป็นขั้นตอนสุดท้ายเสมอ
+6. `.part` ที่ค้างเกิน `PARTIAL_RETENTION` (24 ชม.) MUST ถูกลบตอนเปิดแอป
 
 ---
 
-## 13. Device Management & Revocation (FR-11)
+## 13. Device Management & Signed Cluster Revocation (FR-11, SF-08)
 
-ลำดับ MUST เป็นดังนี้ และทั้งหมด MUST เสร็จภายใน **1 วินาที** (NFR-S05):
+เมื่อผู้ใช้สั่งเพิกถอนอุปกรณ์ (เช่น โน้ตบุ๊กสูญหาย หรือปลดระวางเครื่อง) ระบบ MUST ดำเนินการดังนี้:
 
-1. ลบ fingerprint ออกจาก Trusted Store **ก่อน** (connection ใหม่จะถูกปฏิเสธทันที)
-2. ส่ง `device.revoked` ผ่าน WS แบบ best-effort (รอไม่เกิน 200 ms)
-3. ปิดทุก socket/HTTP stream ที่ผูกกับอุปกรณ์นั้น (close code `4003`) และยกเลิก transfer ที่ค้าง
-4. ลบ peer ออกจาก Outbound Queue / Catch-up target
+### 13.1 Local Revocation Enforcement (ภายในเครื่องที่สั่ง)
+ลำดับ MUST เป็นดังนี้ และทั้งหมด MUST เสร็จสิ้นภายใน **1 วินาที** (NFR-S05):
+1. ลบ fingerprint (`revoked_fp`) ออกจาก Trusted Device Store **ก่อน** ทันที (connection ใหม่จากเครื่องนั้นจะถูกปฏิเสธด้วย `403 E_NOT_PAIRED`)
+2. ส่งข้อความ `device.revoked` ผ่าน WebSocket ไปยังเครื่องที่ถูกเพิกถอนแบบ Best-effort (timeout 200 ms)
+3. ปิดทุก WebSocket connection และ HTTP stream ที่ผูกกับอุปกรณ์นั้นทันที (close code `4003`) และยกเลิก transfer ที่ค้างอยู่
+4. ล้าง peer ออกจาก Outbound Queue และ Catch-up target
 
-ฝั่งที่ได้รับ `device.revoked`:
-- SHOULD ลบผู้เพิกถอนออกจาก Trusted Store ของตัวเอง และแจ้งผู้ใช้
+### 13.2 Cluster-Wide Signed Revocation Broadcast (ทั่วทั้งกลุ่มอุปกรณ์)
+เพื่อแก้ปัญหา Revocation มีผลเฉพาะเครื่องเดี่ยว โดยเครื่องอื่นในวง (เช่น Desktop เครื่องอื่น หรือ Android) ยังคงเชื่อมต่อกับเครื่องที่หายอยู่:
+1. เครื่องที่สั่ง Revoke สร้าง **`RevocationBroadcastToken`**:
+   ```json
+   {
+     "revoker_id": "<my_device_id>",
+     "revoked_id": "<target_device_id>",
+     "revoked_fp": "<target_device_fingerprint>",
+     "timestamp": 1757280000000,
+     "signature": "<ECDSA P-256 signature>"
+   }
+   ```
+2. ทำการ Sign ด้วย ECDSA P-256 Private Key ของตนเอง ครอบคลุมสตริง:
+   `UTF8("dropclip-revoke-v1:" ‖ revoker_id ‖ ":" ‖ revoked_id ‖ ":" ‖ revoked_fp ‖ ":" ‖ timestamp)`
+3. Broadcast ข้อความ `cluster.revocation` (§7.4.10) ไปยัง **ทุก Peer ที่กำลังเชื่อมต่ออยู่ (Connected Peers)** ในวง LAN
+4. **โหนดในคลัสเตอร์ที่ได้รับข้อความ:**
+   - ตรวจสอบว่า `revoker_id` เป็นโหนดที่ตนเชื่อถือใน Trusted Store (หากไม่เชื่อถือ → drop)
+   - ตรวจสอบความสดของเวลา `timestamp` (ห้ามเกิน 24 ชม. จากเวลาปัจจุบัน)
+   - ตรวจสอบลายเซ็น ECDSA ด้วย Public Key / Cert ของ `revoker_id` ที่ Pin ไว้ในเครื่อง
+   - หากลายเซ็นถูกต้อง: ทำการลบ `revoked_fp` ออกจาก Trusted Store ของตนเองทันที, ตัดการเชื่อมต่อและปิด Socket กับอุปกรณ์นั้นใน < 1 วินาที, และส่งต่อ (Gossip Forward) ข้อความนี้ไปยัง Peer อื่นในคลัสเตอร์ (พร้อม LRU Cache ป้องกันการส่งซ้ำ)
+5. **เกณฑ์การยอมรับ (Acceptance Criteria):**
+   - เครื่องที่สั่งเพิกถอน: ยุติการเชื่อมต่อและเพิกถอนในเครื่องตนเองเสร็จสิ้นภายใน **< 1.0 วินาที** (NFR-S05)
+   - คลัสเตอร์ในวง LAN: โหนดที่ออนไลน์ทั้งหมดได้รับสัญญาณ Revocation และตัดการเชื่อมต่อกับเครื่องที่ถูกเพิกถอนเสร็จสิ้นภายใน **< 2.0 วินาที**
+
+ฝั่งที่ได้รับ `device.revoked` ตรง:
+- SHOULD ลบผู้เพิกถอนออกจาก Trusted Store ของตัวเอง และแจ้งผู้ใช้ผ่าน System Notification
 - MUST NOT reconnect อัตโนมัติ
 - ความพยายามเชื่อมต่อใด ๆ หลังจากนี้ได้รับ `403 E_NOT_PAIRED`
 
@@ -1081,26 +1180,28 @@ Sender                                                Receiver
 - Clipboard ถูก lock โดยแอปอื่น → native MUST retry with backoff 50 → 100 → 200 ms (3 ครั้ง) แล้วโยน `PlatformException(code: 'CLIPBOARD_LOCKED')` — **ห้าม crash** (FR-03A Exception Handling)
 - macOS adaptive polling: active (มี input ใน 30 s) = 200 ms, idle = 1,000 ms, screen locked = 2,000 ms — native ตัดสินเอง
 
-### 14.2 Android (Tier 2)
+#### 14.2 Android (Tier 2)
 
-| Channel | Method / Event | คำอธิบาย |
+| Channel / Service | Method / Event | คำอธิบาย & OS Constraints |
 |---|---|---|
-| `dropclip/android/service` | `startService`, `stopService`, `isRunning` | Foreground Service (`START_STICKY`, `foregroundServiceType="dataSync"`) |
-| `dropclip/android/service` | `requestBatteryExemption` | ขอยกเว้น battery optimization |
-| `dropclip/clipboard` | `write`, `clear`, `changeToken` | ใช้ร่วมกับ §14.1 (เขียนได้จาก service) |
-| `dropclip/android/events` | `{"action": "send_clipboard", "snapshot": ClipSnapshot}` | มาจาก QS Tile / Notification Action ผ่าน Transient Activity |
+| `dropclip/android/service` | `startService`, `stopService`, `isRunning` | Foreground Service (`START_STICKY`, **`foregroundServiceType="connectedDevice"`** ตาม ADR-007 — ห้ามใช้ `dataSync` เพราะ Android 15 จำกัดเวลาทำงานรวม ~6 ชม./วัน) |
+| `dropclip/android/service` | `requestBatteryExemption` | ขอยกเว้น battery optimization เพื่อป้องกัน Doze mode ตัด WebSocket |
+| `dropclip/discovery` | `acquireMulticastLock`, `releaseMulticastLock` | ถือ **`WifiManager.MulticastLock`** ระหว่างการค้นหา mDNS ป้องกัน OS ดักทิ้งแพ็กเก็ต UDP 5353 |
+| `dropclip/clipboard` | `write`, `clear`, `changeToken` | ใช้ร่วมกับ §14.1 (เขียนได้โดยตรงจาก Foreground Service) |
+| `dropclip/android/events` | `{"action": "send_clipboard", "snapshot": ClipSnapshot}` | มาจาก QS Tile / Notification Action ผ่าน Transient Activity (Android 14+ MUST ใช้ **`PendingIntent`** สำหรับ `startActivityAndCollapse` ป้องกัน SecurityException) |
 | `dropclip/android/events` | `{"action": "share", "uris": [...], "text": ...}` | มาจาก Share Sheet (`ACTION_SEND`, `ACTION_SEND_MULTIPLE`) |
 | `dropclip/media` | `saveToMediaStore({path, mime})` | SW-03 |
 
 ### 14.3 iOS (Tier 3)
 
-| Component | สัญญา |
+| Component | สัญญา & OS Constraints |
 |---|---|
-| App Group | `group.com.dropclip.shared` — เก็บ `identity.json`, `trusted_devices.json.enc`, `state.json` ร่วมกับ Share Extension |
-| Keychain Access Group | `$(TeamID).com.dropclip.shared` — private key + store key |
-| Share Extension | Native Swift (ไม่ใช้ Flutter engine เพื่อคุม RAM < 30 MB — NFR-R03B) ใช้ `URLSession` + client cert identity → `POST /api/v1/clipboard` หรือ file transfer |
-| `dropclip/ios` channel | `pasteboardWrite`, `pasteboardRead` (เรียกได้เฉพาะ foreground), `savePhoto({path})` (PhotoKit add-only) |
-| AppIntents | `SendClipboardIntent`, `PullClipboardIntent` — ใช้ร่วมกับ Widget / Action Button / Shortcuts |
+| App Group | `group.com.dropclip.shared` — เก็บ `identity.json`, `trusted_devices.json.enc`, `state.json`, และ cached active peers ร่วมกับ Share Extension |
+| Keychain Access Group | `$(TeamID).com.dropclip.shared` — private key (`dropclip.identity.p256`) + store key |
+| Share Extension | Native Swift (ไม่ใช้ Flutter engine เพื่อคุม RAM < 30 MB — NFR-R03B) ใช้ **`URLSessionConfiguration.background(withIdentifier:)`** ร่วมกับ X.509 client cert identity จาก Keychain เพื่อสตรีมไฟล์ขนาดใหญ่ (สูงสุด 4 GB) ได้โดยไม่ถูก Jetsam kill |
+| Discovery | ใช้ **`NWBrowser`** ผ่าน Platform Channel และระบุ **`NSBonjourServices`** (`_dropclip._tcp`) ใน `Info.plist` (หลีกเลี่ยงการใช้ raw multicast UDP socket ซึ่งต้องขอ entitlement พิเศษจาก Apple) |
+| `dropclip/ios` channel | `pasteboardWrite`, `pasteboardRead` (เรียกได้เฉพาะ foreground — มีผลกระทบจาก **iOS 16+ "Allow Paste" System Prompt** ซึ่งถูกนับรวมในตัวชี้วัดการโต้ตอบ 1–2 ขั้นตอน), `savePhoto({path})` (PhotoKit add-only) |
+| AppIntents & Widgets | `SendClipboardIntent`, `PullClipboardIntent` — สำหรับ iOS 17+ รองรับ Interactive Widgets และ iPhone 15 Pro+ Action Button; **Fallback สำหรับ iOS 15/16:** ใช้วิธีแตะ Widget เพื่อ Launch เข้าแอป หรือรันคำสั่งลัดผ่าน Apple Shortcuts Automation |
 
 ### 14.4 Secure Storage (ทุกแพลตฟอร์ม)
 
@@ -1111,7 +1212,7 @@ abstract interface class SecureKeyStore {
   Future<void> write(String key, Uint8List value);
   Future<void> delete(String key);
 }
-// Keys: 'dropclip.identity.ed25519'  (private key)
+// Keys: 'dropclip.identity.p256'     (ECDSA P-256 private key)
 //       'dropclip.store.key'         (AES-256-GCM key สำหรับ trusted_devices.json.enc)
 ```
 
@@ -1123,6 +1224,7 @@ abstract interface class SecureKeyStore {
 | Windows | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` → `"<exe>" --hidden` | `--hidden` |
 
 เมื่อเปิดด้วย `--hidden` แอป MUST อยู่ใน Tray/Menubar เท่านั้น ห้ามเปิดหน้าต่างหรือ pop-up (NFR-U03)
+*(หมายเหตุ: บน Windows 10/11 ระบบมี mDNS responder ประจำ OS บนพอร์ต 5353 อยู่แล้ว จึงต้องเปิด socket ด้วย `SO_REUSEADDR` / shared port และจัดการหน้าต่าง Windows Firewall Prompt ตอน Onboarding)*
 
 ---
 
@@ -1158,13 +1260,26 @@ abstract interface class SecureKeyStore {
 | Entity | Fields |
 |---|---|
 | E-03 `DiscoveredPeer` | `device_id, name, os, tier, ip, port, fp, cap, trust (trusted/untrusted/identity_changed), state, last_seen_at` |
-| E-04 `ClipEntry` | `msg_id, content_type, hash, size, is_concealed, ttl_seconds, data, clock, origin, received_at` |
+| E-04 `ClipEntry` | `msg_id, content_type, hash, size, is_concealed, ttl_seconds, data, hlc, origin, received_at` |
 
-### 15.5 `<item_id>.part.json` (E-05)
+### 15.5 `<item_id>.part.json` (E-05 — Resumable Checkpoint Sidecar)
 ```json
-{ "version": 1, "transfer_id": "c3d4e5f6-...", "item_id": "i1", "path": "Photos/vacation.jpg",
-  "size": 2458123, "sha256": "d2a84f...", "offset": 2097152, "state": "in_progress",
-  "peer_id": "b2c3d4e5-...", "updated_at": 1757280000000 }
+{
+  "version": 2,
+  "transfer_id": "c3d4e5f6-...",
+  "item_id": "i1",
+  "path": "Photos/vacation.jpg",
+  "size": 2458123,
+  "sha256": "d2a84f...",
+  "offset": 2097152,
+  "state": "in_progress",
+  "peer_id": "b2c3d4e5-...",
+  "checkpoints": [
+    { "offset": 67108864, "sha256_prefix": "e3b0c442..." },
+    { "offset": 134217728, "sha256_prefix": "a1b2c3d4..." }
+  ],
+  "updated_at": 1757280000000
+}
 ```
 
 ### 15.6 `config.json` (E-06, FR-12)
@@ -1184,9 +1299,16 @@ abstract interface class SecureKeyStore {
 - การเปลี่ยน config MUST มีผลทันทีโดยไม่ต้องรีสตาร์ต (ผ่าน `Stream<Config>`)
 - ค่าที่ไม่ถูกต้อง → ใช้ค่า default และ log `warn`
 
-### 15.7 `state.json`
+### 15.7 `state.json` (HLC Persistence)
 ```json
-{ "version": 1, "lamport_clock": 1428 }
+{
+  "version": 2,
+  "hlc": {
+    "l": 1757280000000,
+    "c": 0,
+    "d": "550e8400-e29b-41d4-a716-446655440000"
+  }
+}
 ```
 
 ---

@@ -27,5 +27,40 @@ void main() {
       expect(sas, equals('738586'));
     });
   });
-}
 
+  group('Commit-then-Reveal SAS Scheme (PROTO-DC-V2.0 §5.2, §5.5 & ADR-009)', () {
+    const fpA = '0000000000000000000000000000000000000000000000000000000000000000';
+    const fpB = '1111111111111111111111111111111111111111111111111111111111111111';
+    final nonceA = Uint8List.fromList(ascii.encode('0123456789abcdef'));
+    final nonceB = Uint8List.fromList(ascii.encode('fedcba9876543210'));
+
+    test('Calculates 6-digit dual SAS with symmetry', () {
+      final sasHost = SasCalculator.calculateSasDual(fpA, fpB, nonceA, nonceB);
+      final sasClient = SasCalculator.calculateSasDual(fpB, fpA, nonceA, nonceB);
+
+      expect(sasHost.length, equals(6));
+      expect(RegExp(r'^\d{6}$').hasMatch(sasHost), isTrue);
+      expect(sasClient, equals(sasHost), reason: 'Must be symmetric across peers');
+    });
+
+    test('Commitment generation and verification succeed with valid nonce and fp', () {
+      final commitment = SasCalculator.createCommitment(nonceB, fpB);
+      expect(commitment.length, equals(64));
+
+      final isValid = SasCalculator.verifyCommitment(commitment, nonceB, fpB);
+      expect(isValid, isTrue);
+    });
+
+    test('Commitment verification fails when tampered or wrong fp is supplied', () {
+      final commitment = SasCalculator.createCommitment(nonceB, fpB);
+
+      // Wrong nonce
+      final fakeNonce = Uint8List.fromList(ascii.encode('0000000000000000'));
+      expect(SasCalculator.verifyCommitment(commitment, fakeNonce, fpB), isFalse);
+
+      // Wrong fp (MITM key substitution)
+      const fakeFp = '2222222222222222222222222222222222222222222222222222222222222222';
+      expect(SasCalculator.verifyCommitment(commitment, nonceB, fakeFp), isFalse);
+    });
+  });
+}
