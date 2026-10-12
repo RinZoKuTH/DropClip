@@ -31,3 +31,4 @@ void main(List<String> args) {
 
   stdout.writeln('Fuzzer finished: Successfully blocked $blockedCount / ${attackVectors.length} malicious vectors.');
 }
+

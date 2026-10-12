@@ -52,3 +52,4 @@ class SasCalculator {
     return Uint8List.fromList(digest.bytes.sublist(0, 16));
   }
 }
+

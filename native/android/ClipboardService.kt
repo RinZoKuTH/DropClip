@@ -70,3 +70,4 @@ class DropClipForegroundService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 }
+

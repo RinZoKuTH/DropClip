@@ -35,3 +35,4 @@ jobs:
           if [ -d "tools/bench" ]; then
             cd tools/bench && dart test || true
           fi
+

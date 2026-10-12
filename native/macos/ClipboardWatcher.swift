@@ -60,3 +60,4 @@ public class ClipboardWatcher {
         onChanged(false, items)
     }
 }
+

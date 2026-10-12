@@ -20,3 +20,4 @@ abstract interface class PlatformClipboard {
   Future<void> clear();
   int changeToken();
 }
+

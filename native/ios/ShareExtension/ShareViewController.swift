@@ -46,3 +46,4 @@ class ShareViewController: SLComposeServiceViewController {
         return []
     }
 }
+

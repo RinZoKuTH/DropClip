@@ -20,3 +20,4 @@ void main(List<String> args) {
   stdout.writeln('Completed $iterations SAS calculations in ${stopwatch.elapsedMilliseconds} ms ($timePerOpUs µs / op)');
   stdout.writeln('Target check: OK (< 100 µs)');
 }
+

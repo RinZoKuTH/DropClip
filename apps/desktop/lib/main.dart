@@ -8,3 +8,4 @@ void main(List<String> args) {
   stdout.writeln('Protocol Version: ${ProtocolConstants.protocolVersion}');
   stdout.writeln('Launch mode: ${isHiddenLaunch ? "Background / Tray Only" : "Interactive Window"}');
 }
+

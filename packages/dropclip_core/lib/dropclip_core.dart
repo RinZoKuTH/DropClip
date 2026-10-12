@@ -13,3 +13,4 @@ abstract interface class SecureKeyStore {
   /// Deletes a key from secure storage.
   Future<void> delete(String key);
 }
+

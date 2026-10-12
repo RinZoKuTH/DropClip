@@ -8,3 +8,4 @@
 | `windows/` | Windows 10/11 | C++ | Win32 `AddClipboardFormatListener`, `WM_CLIPBOARDUPDATE`, Windows Registry Run key |
 | `android/` | Android 10+ | Kotlin | Foreground Service (`START_STICKY`), Persistent Notification, Quick Settings `TileService`, `MediaStore` |
 | `ios/` | iOS 15+ | Swift | Share Sheet Action Extension (Memory Peak < 30 MB), App Group Shared Container, `WidgetKit` |
+

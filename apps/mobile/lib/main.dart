@@ -6,3 +6,4 @@ void main(List<String> args) {
   stdout.writeln('Starting ${DropClipThemeTokens.appName} Mobile Client...');
   stdout.writeln('Protocol Version: ${ProtocolConstants.protocolVersion}');
 }
+

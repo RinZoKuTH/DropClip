@@ -49,3 +49,4 @@ linter:
     - unnecessary_string_interpolations
     - use_build_context_synchronously
     - valid_regexps
+

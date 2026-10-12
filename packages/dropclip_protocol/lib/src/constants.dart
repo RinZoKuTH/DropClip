@@ -42,3 +42,4 @@ class ProtocolConstants {
   static const Duration partialRetention = Duration(hours: 24);
   static const Duration revocationDeadline = Duration(milliseconds: 1000);
 }
+

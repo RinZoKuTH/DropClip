@@ -53,3 +53,4 @@ test(protocol): add sas conformance test vectors (T0.2)
 - `test`: เพิ่มหรือแก้ไขชุดทดสอบ
 - `docs`: แก้ไขเอกสาร
 - `chore`: งานทั่วไปหรือการอัปเดต dependencies
+

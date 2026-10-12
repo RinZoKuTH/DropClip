@@ -72,3 +72,4 @@ class PathSanitizer {
     return parts.join('/');
   }
 }
+

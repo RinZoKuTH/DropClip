@@ -25,3 +25,4 @@ _พฤติกรรมที่ถูกต้องตาม SRS-DC-V1.2 ห
 
 ### Actual Behavior & Logs
 _สิ่งที่เกิดขึ้นจริง และแนบ Structured JSON Log (Scrubbed)_
+

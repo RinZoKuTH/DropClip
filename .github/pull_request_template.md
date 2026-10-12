@@ -22,3 +22,4 @@ _สรุปการเปลี่ยนแปลงที่ทำใน PR 
 - [ ] **Memory Rule:** ไม่พบ `readAsBytes()` สำหรับงานประมวลผลไฟล์ (บังคับ Streaming)
 - [ ] **Platform Native Honesty:** ปฏิบัติตาม Capability Tiers อย่างเคร่งครัด
 - [ ] **Documentation:** อัปเดตเอกสาร API และคู่มือที่เกี่ยวข้องแล้ว
+
