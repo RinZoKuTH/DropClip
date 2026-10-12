@@ -157,7 +157,7 @@
 | การคัดลอกข้อความ | Native Clipboard Watcher | 1 |
 | การคัดลอกบนมือถือ | Quick Settings Tile / Share Sheet / Action Button | 2, 3 |
 | การรับข้อความบนมือถือ | Notification พร้อมปุ่ม Copy หนึ่งแตะ | 2, 3 |
-| การรับไฟล์ | Silent Auto-Accept | ทุก Tier |
+| การรับไฟล์ | Auto-Accept (Opt-in ต่ออุปกรณ์ที่เชื่อถือ, ปิดเป็นค่าเริ่มต้น) | ทุก Tier |
 | การส่งไฟล์ | Context Menu + Drag-and-Drop | 1 |
 | เครื่องออฟไลน์ | Catch-up Sync Queue (20 รายการล่าสุด) | ทุก Tier |
 | เครือข่ายหลุด | Resumable Transfer | ทุก Tier |
@@ -192,7 +192,7 @@
 | File Throughput | ≥ 60% iperf3 baseline | ไฟล์ 1 GB / 10 GB |
 | Peak Memory (10 GB) | < 100 MB คงที่ | Instruments / PerfMon |
 | Discovery Time | < 3 s | จับเวลาจนอุปกรณ์ปรากฏ |
-| Battery Drain (idle) | < 1%/ชม. | เทียบ baseline 8 ชม. |
+| Battery Drain (idle) | < 3% ต่อ 24 ชม. บนมือถือ (Battery Historian) และ CPU idle < 0.5% บน Desktop | ทดสอบต่อเนื่อง 24 ชม. เทียบ baseline |
 
 ### 9.2 ประสบการณ์ผู้ใช้
 
@@ -209,7 +209,7 @@
 - Loop Prevention: 4 เครื่อง 1,000 เหตุการณ์ ไม่มี loop ไม่สูญข้อมูล
 - Format Fidelity: 50 ภาพ SSIM ≥ 0.99
 - Concealed Filtering: 1Password/Bitwarden/Keychain ไม่ซิงก์ 100%
-- Revocation: อุปกรณ์ที่ถูกถอดต้องตัดภายใน 1 วินาที
+- Revocation: อุปกรณ์ที่ถูกถอดต้องตัดสิทธิ์ในเครื่องภายใน < 1 วินาที และแพร่กระจายทั่วคลัสเตอร์ภายใน < 2 วินาที (NFR-S05)
 
 ---
 
@@ -243,8 +243,8 @@
 - **Conventional Commits** เพื่อ auto changelog
 
 ### การแบ่งงาน
-- **Lead ทำเอง:** Protocol design, Security/Pairing, Native clipboard hooks, CI/CD, Code signing
-- **ทีมทำ:** Networking layer, File transfer, UI, Business logic, Format Normalizer, Test suite
+- **Lead ทำเอง:** Protocol design, Security/Pairing Core, Shared Architecture, iOS Network Privacy & Permissions, CI/CD, Code signing (Native clipboard hooks พัฒนาร่วมกับ DESK สำหรับ macOS และ NET สำหรับ Windows)
+- **ทีมทำ:** Networking layer, File transfer, UI, Business logic, Format Normalizer, Test suite, และ Mobile native integration
 
 ---
 

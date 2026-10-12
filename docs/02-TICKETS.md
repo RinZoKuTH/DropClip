@@ -17,10 +17,10 @@
 
 | ลำดับ | ชื่อ-นามสกุล (ชื่อเล่น) | Role Code | บทบาทหลัก (Primary Role) | ขอบเขตหน้าที่และความรับผิดชอบหลัก (SRS Mapping) |
 |:---:|---|:---:|---|---|
-| **1** | **นายธนกฤต บุญญาวรกุล (เจ)** | `LEAD` | Project Lead & System Architect | Architecture, Protocol Spec, Security Core (FR-02, NFR-S), Signed Cluster Revocation (T1.13), iOS Network Privacy & NWBrowser (T3.1), Pair-Program T1.3 with MOB, CI/CD, Code Signing & Release |
+| **1** | **นายธนกฤต บุญญาวรกุล (เจ)** | `LEAD` | Project Lead & System Architect | Architecture, Protocol Spec, Security Core (FR-02, NFR-S), Signed Cluster Revocation (T1.13), iOS Network Privacy & NWBrowser (T3.1), Co-engineer T1.3, T2.1, T3.2 with MOB, CI/CD, Code Signing & Release |
 | **2** | **นายณัฐธีร์ อโณทัยไพบูลย์ (ธีร์)** | `DESK` | Desktop Client Developer | Desktop Discovery (FR-01), macOS Native Clipboard Watcher (T1.6), Tier 1 Clipboard Sync Engine (FR-03A, FR-04), Cross-OS Image Normalizer (T1.8, FR-06), Desktop UI & System Tray (FR-12, UI-01, UI-02) |
-| **3** | **นายเกื้ออนันต์ พวงนิลน้อย (เกื้อ)** | `MOB` | Mobile Client Developer | Mobile Spikes (S0.2), Android Tier 2 Sync & Foreground Service (FR-03B), iOS Tier 3 Extensions, Widgets & PhotoKit (T3.2–T3.4), Mobile UI (UI-05), Pair-Program T1.3 with LEAD |
-| **4** | **นายปัณณ์ ศรีเจริญชัยกุล (ปัน)** | `NET` | Network & File Engine Engineer | Transport Layer (FR-10, CI-02), Windows Native Clipboard Watcher (T1.7), Streaming Data Plane (FR-07, FR-08, SF-06), Resumable Transfer Engine (FR-09) |
+| **3** | **นายเกื้ออนันต์ พวงนิลน้อย (เกื้อ)** | `MOB` | Mobile Client Developer | Mobile Spikes (S0.2), Android Tier 2 Sync & Foreground Service (FR-03B, T2.1 with LEAD, T2.3 with NET, T2.4 with NET), iOS Tier 3 Extensions & PhotoKit (T3.2 with LEAD, T3.4 with NET), Mobile UI (UI-05), Co-engineer T1.3 with LEAD |
+| **4** | **นายปัณณ์ ศรีเจริญชัยกุล (ปัน)** | `NET` | Network & File Engine Engineer | Transport Layer (FR-10, CI-02), Windows Native Clipboard Watcher (T1.7), Streaming Data Plane (FR-07, FR-08, SF-06), Resumable Transfer Engine (FR-09), Co-engineer Android/iOS data engines (T2.3, T2.4, T3.4 with MOB) |
 | **5** | **นายปรมินทร์ มุขอาษา (ตามด)** | `QA` | QA, UX/UI & Performance Engineer | Test Harness & Chaos Simulation (NFR-RE), Automated Benchmarks (NFR-P, NFR-R), Security Pentest Auditing (STRIDE/Threat Modeling), UX Usability Studies (NFR-U) |
 
 ---
@@ -127,16 +127,16 @@ main (Protected — Production Ready, Always Stable)
 | **T1.12** | Desktop UI, Tray & Dropzone | `DESK` | FR-12, UI-01, UI-02, UI-04, NFR-U03 | §14.5, §15.6 | — |
 | **T1.13** | Device Management & Signed Cluster Revocation | `LEAD` | FR-11, SF-08, NFR-S05 | §13 | — |
 | **GATE-1** | Milestone Review, Desktop Pentest & Dogfooding | `ALL` | All Phase 1 Requirements + Pentest | — | — |
-| **T2.1** | Android Foreground Service (connectedDevice) & Lifecycle | `MOB` | FR-03B, NFR-R03A | §14.2 | ADR-007 |
+| **T2.1** | Android Foreground Service (connectedDevice) & Lifecycle | `MOB` + `LEAD` | FR-03B, NFR-R03A | §14.2 | ADR-007 |
 | **T2.2** | Android Quick Settings Tile (PendingIntent) & 1-Click Action | `MOB` | FR-03B, UI-05, NFR-P01C | §9.4, §14.2 | ADR-007 |
-| **T2.3** | Android Clipboard Receiver & Inbound Sync | `MOB` | FR-03B, NFR-P01B | §9.4, §10.6 | — |
-| **T2.4** | Android MediaStore & Share Target Engine | `MOB` | FR-07, FR-08, SW-03 | §12.3, §14.2 | — |
+| **T2.3** | Android Clipboard Receiver & Inbound Sync | `MOB` + `NET` | FR-03B, NFR-P01B | §9.4, §10.6 | — |
+| **T2.4** | Android MediaStore & Share Target Engine | `NET` + `MOB` | FR-07, FR-08, SW-03 | §12.3, §14.2 | — |
 | **T2.5** | Android Mobile UI & QR Scanner | `MOB` | UI-03, UI-05 | §5.3 | — |
 | **GATE-2** | Phase 2 Android Exit Gate | `ALL` | All Android Requirements | — | — |
 | **T3.1** | iOS Network Permissions & NWBrowser Discovery | `LEAD` | FR-01, CI-01 | §3, §14.3 | — |
-| **T3.2** | iOS Share Extension (BG URLSession < 30 MB) & Memory Sandbox | `MOB` | FR-03C, NFR-R03B, NFR-P01D | §9.4, §14.3 | ADR-007 |
+| **T3.2** | iOS Share Extension (BG URLSession < 30 MB) & Memory Sandbox | `MOB` + `LEAD` | FR-03C, NFR-R03B, NFR-P01D | §9.4, §14.3 | ADR-007 |
 | **T3.3** | iOS Action Button, Widgets & Shortcuts (iOS 15/16 Fallbacks) | `MOB` | FR-03C, UI-05 | §14.3 | — |
-| **T3.4** | iOS PhotoKit & File Receiver Engine | `MOB` | FR-08, SW-03 | §12.3, §14.3 | — |
+| **T3.4** | iOS PhotoKit & File Receiver Engine | `NET` + `MOB` | FR-08, SW-03 | §12.3, §14.3 | — |
 | **GATE-3** | Phase 3 iOS Exit Gate | `ALL` | All iOS Requirements | — | — |
 | **T4.1** | Automated Benchmark Suite & CI Regression | `QA` | NFR-P01–P05, NFR-R01 | — | — |
 | **T4.2** | Security Audit & Full Mobile Penetration Testing | `QA` | NFR-S01–S05 | §17 | — |
@@ -200,7 +200,7 @@ main (Protected — Production Ready, Always Stable)
 - **Owner:** `LEAD` (เจ)
 - **Estimate:** 3 วัน
 - **Priority:** P0 — Blocker
-- **Dependencies:** S0.1
+- **Dependencies:** —
 - **Labels:** `infra` `devops` `phase-0`
 - **Description:**  
   จัดตั้ง Melos Monorepo ประกอบด้วย 5 core packages, 2 application targets, โฟลเดอร์ native code และ tooling ตามโครงสร้าง ADR-005 พร้อม GitHub Actions CI Pipeline ที่ตรวจสอบคุณภาพโค้ดอัตโนมัติ
@@ -623,13 +623,13 @@ main (Protected — Production Ready, Always Stable)
 ### PHASE 2 — ANDROID CAPABILITY EXTENSION (สัปดาห์ 13–17)
 
 #### T2.1 — Android Foreground Service & Lifecycle Manager
-- **Owner:** `MOB` (เกื้อ)
+- **Owner:** `MOB` (เกื้อ) + `LEAD` (เจ)
 - **Estimate:** 5 วัน
 - **Priority:** P0
 - **Dependencies:** GATE-1
 - **Labels:** `android` `service` `native` `phase-2`
 - **Description:**  
-  พัฒนา Android Foreground Service ด้วยภาษา Kotlin ตาม FR-03B, NFR-R03A, ADR-007 และ Protocol Spec §14.2
+  พัฒนา Android Foreground Service ด้วยภาษา Kotlin ตาม FR-03B, NFR-R03A, ADR-007 และ Protocol Spec §14.2 (ร่วมพัฒนาระหว่าง MOB ดูแล Native Kotlin Lifecycle และ LEAD ดูแล IPC Integration กับ Core Dart Isolate)
 - **Technical Detail:**
   - รัน Service แบบ `START_STICKY` พร้อม `foregroundServiceType="connectedDevice"` (หลีกเลี่ยงโควตา ~6 ชม./วัน ของ `dataSync` บน Android 15)
   - ถือครอง `WifiManager.MulticastLock` ขณะค้นหา mDNS บนเครือข่าย Wi-Fi
@@ -664,13 +664,13 @@ main (Protected — Production Ready, Always Stable)
 ---
 
 #### T2.3 — Android Clipboard Receiver & Inbound Passive Engine
-- **Owner:** `MOB` (เกื้อ)
+- **Owner:** `MOB` (เกื้อ) + `NET` (ปัน)
 - **Estimate:** 4 วัน
 - **Priority:** P0
 - **Dependencies:** T2.1
 - **Labels:** `android` `clipboard` `phase-2`
 - **Description:**  
-  พัฒนาระบบรับข้อมูลคลิปบอร์ดจาก Desktop เขียนลง Android System Clipboard โดยอัตโนมัติในเบื้องหลังตาม FR-03B, NFR-P01B และ Protocol Spec §10.6
+  พัฒนาระบบรับข้อมูลคลิปบอร์ดจาก Desktop เขียนลง Android System Clipboard โดยอัตโนมัติในเบื้องหลังตาม FR-03B, NFR-P01B และ Protocol Spec §10.6 (MOB ดูแล Android ClipboardManager API และ NET ดูแล Network Inbound Handling)
 - **Technical Detail:**
   - รับข้อความผ่าน WebSocket ใน Foreground Service หรือผ่าน `POST /api/v1/clipboard`
   - นำข้อมูลบรรจุลง `ClipData` และเรียก `ClipboardManager.setPrimaryClip()`
@@ -684,13 +684,13 @@ main (Protected — Production Ready, Always Stable)
 ---
 
 #### T2.4 — Android MediaStore Integration & Share Target Engine
-- **Owner:** `MOB` (เกื้อ)
+- **Owner:** `NET` (ปัน) + `MOB` (เกื้อ)
 - **Estimate:** 5 วัน
 - **Priority:** P0
 - **Dependencies:** T2.1
 - **Labels:** `android` `storage` `share` `phase-2`
 - **Description:**  
-  พัฒนาระบบรับส่งไฟล์บน Android ผ่าน `MediaStore` และการเป็น Share Target ตาม FR-07, FR-08, SW-03 และ Protocol Spec §14.2
+  พัฒนาระบบรับส่งไฟล์บน Android ผ่าน `MediaStore` และการเป็น Share Target ตาม FR-07, FR-08, SW-03 และ Protocol Spec §14.2 (NET ดูแล Chunked HTTP I/O Streaming และ Checkpoint Verifier ส่วน MOB ดูแล Android Scoped Storage & Share Sheet Intent)
 - **Technical Detail:**
   - รองรับ `ACTION_SEND` และ `ACTION_SEND_MULTIPLE` จาก Android Share Sheet
   - บันทึกไฟล์รูปภาพ/วิดีโอที่ได้รับลง Gallery ผ่าน Scoped Storage / `MediaStore`
@@ -755,13 +755,13 @@ main (Protected — Production Ready, Always Stable)
 ---
 
 #### T3.2 — iOS Share Sheet Extension & Memory-Constrained Engine
-- **Owner:** `MOB` (เกื้อ)
+- **Owner:** `MOB` (เกื้อ) + `LEAD` (เจ)
 - **Estimate:** 5 วัน
 - **Priority:** P0
 - **Dependencies:** T3.1
 - **Labels:** `ios` `extension` `swift` `phase-3`
 - **Description:**  
-  พัฒนา iOS Action/Share Extension ด้วยภาษา Swift ล้วน (ไม่ใช้ Flutter Engine) เพื่อควบคุมการใช้หน่วยความจำตาม FR-03C, NFR-R03B, ADR-007 และ Protocol Spec §14.3
+  พัฒนา iOS Action/Share Extension ด้วยภาษา Swift ล้วน (ไม่ใช้ Flutter Engine) เพื่อควบคุมการใช้หน่วยความจำตาม FR-03C, NFR-R03B, ADR-007 และ Protocol Spec §14.3 (ร่วมพัฒนาระหว่าง MOB ดูแล Swift UI & Background URLSession และ LEAD ดูแล Keychain Access Group & Network.framework TLS)
 - **Technical Detail:**
   - ใช้ `App Group` (`group.com.dropclip.shared`) สำหรับแชร์ Trusted Device Store และ Peer Endpoint Cache กับแอปหลัก
   - ดึง ECDSA P-256 Identity จาก Keychain Access Group เพื่อทำ mTLS 1.3
@@ -795,13 +795,13 @@ main (Protected — Production Ready, Always Stable)
 ---
 
 #### T3.4 — iOS File Receiver & PhotoKit Integration Engine
-- **Owner:** `MOB` (เกื้อ)
+- **Owner:** `NET` (ปัน) + `MOB` (เกื้อ)
 - **Estimate:** 4 วัน
 - **Priority:** P0
 - **Dependencies:** T3.1
 - **Labels:** `ios` `transfer` `photos` `storage` `phase-3`
 - **Description:**  
-  พัฒนาระบบรับไฟล์เข้าสู่อุปกรณ์ iOS ขณะเปิดแอปพลิเคชัน พร้อมบันทึกภาพถ่ายเข้าสู่ Photos Library ตาม FR-08, SW-03 และ Protocol Spec §12.3
+  พัฒนาระบบรับไฟล์เข้าสู่อุปกรณ์ iOS ขณะเปิดแอปพลิเคชัน พร้อมบันทึกภาพถ่ายเข้าสู่ Photos Library ตาม FR-08, SW-03 และ Protocol Spec §12.3 (NET ดูแล HTTP Streaming Receiver & Checkpoint Integrity Verification ส่วน MOB ดูแล PhotoKit Scoped Access & iOS Sandbox Storage)
 - **Technical Detail:**
   - จัดเก็บรูปภาพและวิดีโอเข้า Photos ผ่าน `PHPhotoLibrary` โดยขอสิทธิ์แบบ Add-Only
   - จัดเก็บเอกสารและไฟล์ประเภทอื่นเข้าสู่ Sandbox โฟลเดอร์ "On My iPhone / DropClip"

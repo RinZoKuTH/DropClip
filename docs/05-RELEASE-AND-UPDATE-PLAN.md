@@ -89,8 +89,9 @@ flowchart TD
 ### 3.2 Windows Platform Deployment
 - **Packaging:** Windows MSIX Package และ Standalone NSIS Executable Installer (.exe)
 - **Code Signing:** ลงนามด้วย Microsoft Authenticode Certificate เพื่อป้องกันคำเตือน Windows SmartScreen Block
-  - *Primary Signing Architecture:* Hardware Token EV / Standard Code Signing (DigiCert / Sectigo) ผ่าน SignTool สำหรับการพัฒนาและ Release ของนิติบุคคล/นักพัฒนาในประเทศไทย
+  - *Primary Signing Architecture (Production/Enterprise):* Hardware Token EV / Standard Code Signing (DigiCert / Sectigo) ผ่าน SignTool สำหรับการพัฒนาและ Release ของนิติบุคคล/นักพัฒนาในเชิงพาณิชย์
   - *Cloud Signing Alternative:* Azure Trusted Signing (หากมี Azure Tenant องค์กรที่ผ่านการรับรอง)
+  - *Open-Source & Student Project Pathway (บริบทโครงงานการศึกษา):* สำหรับโครงงานนักศึกษา/โอเพนซอร์สที่ยังไม่มีใบรับรองเชิงพาณิชย์ (EV Certificate ซึ่งมีค่าใช้จ่ายสูง $300+/ปี) ระบบจะจัดทำ GitHub Releases พร้อมเผยแพร่ SHA-256 Checksums อย่างเป็นทางการ และระบุคำแนะนำแก่ผู้ใช้ในการกดยืนยันผ่าน Windows SmartScreen ("More info" → "Run anyway") รวมถึงรองรับการ Build ติดตั้งเองจากซอร์สโค้ด และการลงนามด้วย Self-Signed Certificate ที่ติดตั้งใน Root Certificate Store ของเครื่องทดสอบ
 - **In-App Auto-Update:** ขับเคลื่อนด้วย **WinSparkle Framework** ผ่าน HTTPS AppCast XML Feed พร้อมตรวจสอบ SHA-256 Checksum และ Authenticode Signature
 - **Package Distribution Channel:** เผยแพร่ผ่าน Windows Package Manager Community Repository (`winget install DropClip`) ควบคู่กับ GitHub Releases (เป็นช่องทางติดตั้งเสริม ไม่ใช่ตัวขับเคลื่อน In-App Update หลัก)
 
@@ -162,14 +163,15 @@ flowchart TD
 
 เพื่อความปลอดภัยสูงสุดในกระบวนการผลิตซอฟต์แวร์ (Supply Chain Security):
 1. **Dependency Locking:** ตรวจสอบและบันทึก Checksum ของทุก Package ใน `pubspec.lock`, `Podfile.lock`, และ Gradle Wrapper
-2. **Automated Vulnerability Audit:** รันคำสั่ง `dart pub audit` และ GitHub Dependabot ทุกสัปดาห์
+2. **Automated Vulnerability Audit:** ตรวจสอบช่องโหว่ความปลอดภัยของ Dependencies อัตโนมัติใน CI ทุกสัปดาห์ด้วย **`osv-scanner`** (Google Open Source Vulnerabilities Scanner), `dart pub outdated`, และ GitHub Dependabot (หมายเหตุ: SDK ปัจจุบันยังไม่มีคำสั่ง `dart pub audit` ในตัว จึงใช้ `osv-scanner` เป็นเครื่องมือมาตรฐานอุตสาหกรรม)
 3. **CycloneDX SBOM Generation:** ทุก Release Build ใน GitHub Actions จะส่งออกไฟล์ `sbom-dropclip.json` ตามมาตรฐาน CycloneDX 1.5 เพื่อให้ผู้ใช้งานและองค์กรสามารถตรวจสอบส่วนประกอบซอฟต์แวร์แบบโอเพนซอร์สได้อย่างโปร่งใส
 
 ---
 
 ## 7. Vulnerability Disclosure & Coordinated Release
 
-DropClip ปฏิบัติตามมาตรฐาน RFC 9116 ผ่าน `/.well-known/security.txt`:
-- **Security Contact:** `mailto:security@dropclip.net`
+DropClip ปฏิบัติตามมาตรฐาน RFC 9116 ผ่าน `/.well-known/security.txt` และช่องทางรายงานแบบลับของ GitHub:
+- **Primary Intake Channel (Open-Source Project):** GitHub Security Advisories Private Vulnerability Reporting (`https://github.com/DropClip/DropClip/security/advisories`) สำหรับรับแจ้งช่องโหว่จากภายนอกอย่างปลอดภัยโดยไม่เปิดเผยสู่สาธารณะก่อนเวลา
+- **Security Contact:** `mailto:security@dropclip.net` (ช่องทางอีเมลหลักเมื่อพร้อมใช้งานโดเมนการผลิต)
 - **PGP Encryption Key:** `https://dropclip.net/pgp-key.asc`
 - **Coordinated Vulnerability Disclosure (CVD):** ให้เวลาทีมงาน 7 วันในการพัฒนาและปล่อย Patch ผ่าน Roll-Forward ก่อนการเปิดเผยรายละเอียดสู่สาธารณะ

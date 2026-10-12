@@ -5,6 +5,49 @@
 
 ---
 
+## [2026-10-13] PCR-02: Comprehensive Peer Review Corrections & ISO 29148 Realignments
+
+| รายการ | รายละเอียด |
+|---|---|
+| **Scope** | SRS v1.3 (ISO/IEC/IEEE 29148 & IEEE 830), Threat Model v2.1 (CVSS v3.1 recalculations), Tickets v2.1 (workload rebalance & dependency unlock), Release Plan v2.1 (osv-scanner & OSS signing), Playbook v2.1, Core Frameworks (T0.3 LoggingScrubber & T0.4 TestCluster) |
+| **Branch** | `main` |
+| **Engineers** | ทั้งทีม (`LEAD`, `DESK`, `MOB`, `NET`, `QA`) |
+| **AI Assistant** | Antigravity AI Pair Programmer |
+| **Status** | `COMPLETED & VERIFIED` |
+
+### 1. วัตถุประสงค์
+แก้ไขข้อบกพร่องเชิงระบบที่ตรวจพบในรายงาน Peer Review ครอบคลุมเอกสารทั้ง 6 ฉบับ และสร้างโค้ดส่วนของ Core Frameworks:
+1. ปรับปรุง SRS ให้ได้มาตรฐานวิชาชีพสากล ISO/IEC/IEEE 29148 และ IEEE 830 (เพิ่ม Use Cases, MoSCoW, Rationale, Verification Methods, แก้ไขผลสำรวจเป็นแผนเก็บข้อมูลเพื่อความซื่อสัตย์ทางวิชาการ)
+2. แก้ไขการคำนวณคะแนน CVSS v3.1 ในแบบจำลองภัยคุกคาม และเพิ่มภัยคุกคามที่ยังตกหล่น (T-I04, T-D04, T-T04, T-E03, T-R03)
+3. ปลดล็อก Dependency T0.1 ออกจาก S0.1 และเกลี่ยภาระงาน Phase 2 & 3 ระหว่าง MOB, LEAD, และ NET
+4. แทนที่ `dart pub audit` ด้วย `osv-scanner` และเพิ่มแนวทางการลงนามสำหรับโครงงานโอเพนซอร์ส/นักศึกษา
+5. ซิงก์ค่าตัวชี้วัดแบตเตอรี่และการเพิกถอนสิทธิ์ใน Playbook ให้สอดคล้องกับ SRS
+6. พัฒนาโค้ดรูปธรรมสำหรับ `LoggingScrubber` (T0.3) และ `TestCluster` (T0.4) พร้อม Unit Tests ครบถ้วน
+
+### 2. การตัดสินใจทางเทคนิคและการแก้ไข (Key Implementations)
+1. **SRS Revision (ISO/IEC/IEEE 29148:2018 & IEEE 830-1998):**
+   - เพิ่มประวัติการแก้ไขและปรับสถานะเอกสารเป็น `Draft / Under Review` เพื่อความสมจริงก่อนการสอบประเมินโครงงาน
+   - เพิ่ม Use Cases ตาราง UC-01 ถึง UC-12 ครอบคลุมทุกสถานการณ์ใช้งาน
+   - ใส่ MoSCoW priority, Rationale, และ Verification Methods (Test, Inspection, Analysis, Demonstration) ใน FR-01 ถึง FR-12
+   - ปรับแก้ข้อมูลใน §2.2 / §2.3.1 เป็น "แผนการเก็บรวบรวมข้อมูลและการวิเคราะห์เบื้องต้น (Data Gathering Plan & Preliminary Analysis)" และตัดตัวเลข 68% ที่ยังไม่ได้สำรวจจริงออกเพื่อความซื่อสัตย์ทางวิชาการ
+   - เพิ่มข้อกำหนด NFR-M01 (Maintainability $\ge 75\%$), NFR-L01 (Localization TH/EN), NFR-A01 (Accessibility WCAG AA) และจัดทำ Traceability Matrix ครบ 100%
+2. **Threat Model Recalculations & Additional Threats:**
+   - คำนวณคะแนน CVSS v3.1 ใหม่ตรงตามมาตรฐาน: T-S02 (6.4 Medium), T-S03 (7.3 High), T-S04 (8.1 High), T-I01 (6.2 Medium)
+   - เพิ่มภัยคุกคามใหม่: T-I04 (mDNS passive surveillance), T-D04 (Pairing handshake DoS), T-T04 (Co-located pastejacking), T-E03 (Auto-accept drive-by exploitation), T-R03 (Stale revocation replay)
+   - ระบุช่องทางรายงาน GHSA ในข้อกำหนดการเปิดเผยช่องโหว่
+3. **Tickets & Workload Balancing:**
+   - ปลดล็อก Dependency ของ T0.1 ออกจาก S0.1 เพื่อให้เริ่มงานโครงสร้าง Monorepo ได้ทันที
+   - มอบหมายงานร่วม: T2.1 (`MOB` + `LEAD`), T2.3 (`MOB` + `NET`), T2.4 (`NET` + `MOB`), T3.2 (`MOB` + `LEAD`), T3.4 (`NET` + `MOB`) เพื่อป้องกันภาวะคอขวดเดี่ยวของ MOB
+4. **Supply Chain & Deployment Clarity:**
+   - เปลี่ยนคำสั่งตรวจสอบช่องโหว่ใน CI เป็น `osv-scanner` (Google OSV)
+   - เพิ่มคำอธิบายช่องทาง Open-Source & Student Project Signing และคำแนะนำสำหรับ Windows SmartScreen
+5. **Concrete Scaffold Implementations (T0.3 & T0.4):**
+   - พัฒนา `LoggingScrubber`: สกัดกั้น PEM Private Keys, Passwords, PINs, และ Clipboard Raw Payloads อัตโนมัติ พร้อมฟอร์แมต JSON Lines
+   - พัฒนา `TestCluster`: รองรับการจำลอง In-Memory Multi-Device Mesh, Network Partitioning/Healing, Latency & Packet Loss Injection, และ HLC Clock Synchronization
+   - พัฒนา Unit Tests ครบ 100% ใน `packages/dropclip_core/test/`
+
+---
+
 ## [2026-10-13] PCR-01: Protocol & Architectural Alignment (Peer Review Findings)
 
 | รายการ | รายละเอียด |

@@ -6,11 +6,21 @@
 
 | รายการ | รายละเอียด |
 |---|---|
-| **รหัสเอกสาร** | SRS-DC-V1.2 |
-| **เวอร์ชันเอกสาร** | 1.2 (Formal Revision — Platform Capability Tiers & Modularized FR/NFR) |
-| **สถานะ** | Approved for Implementation |
-| **วันที่จัดทำ** | 10 กันยายน 2569 (ปรับปรุงล่าสุด ตุลาคม 2569) |
-| **อ้างอิงเอกสารที่เกี่ยวข้อง** | `00-PROJECT-PROPOSAL-AND-PLAYBOOK.md`, `01-PROTOCOL-SPEC.md`, `02-TICKETS.md` |
+| **รหัสเอกสาร** | SRS-DC-V1.3 |
+| **เวอร์ชันเอกสาร** | 1.3 (ISO/IEC/IEEE 29148 & IEEE 830 Conformance Revision) |
+| **สถานะ** | Draft / Under Review (รอการสอบโครงงานวิชาการ) |
+| **วันที่จัดทำ** | 10 กันยายน 2569 (ปรับปรุงล่าสุด 13 ตุลาคม 2569) |
+| **มาตรฐานที่อ้างอิง** | ISO/IEC/IEEE 29148:2018, IEEE 830-1998 |
+| **อ้างอิงเอกสารที่เกี่ยวข้อง** | `00-PROJECT-PROPOSAL-AND-PLAYBOOK.md`, `01-PROTOCOL-SPEC.md`, `02-TICKETS.md`, `04-THREAT-MODEL.md`, `05-RELEASE-AND-UPDATE-PLAN.md` |
+
+### ตารางประวัติการแก้ไขเอกสาร (Document Revision History)
+
+| เวอร์ชัน | วันที่ | ผู้แก้ไขหลัก | สรุปรายละเอียดการเปลี่ยนแปลง |
+|:---:|:---:|---|---|
+| 1.0 | 10 ก.ย. 2569 | เจ (LEAD), ธีร์ (DESK) | จัดทำร่างแรก โครงสร้างความต้องการพื้นฐานและสถาปัตยกรรม LAN P2P |
+| 1.1 | 24 ก.ย. 2569 | เจ (LEAD), เกื้อ (MOB), ปัน (NET) | เพิ่ม Platform Capability Tiers (Tier 1–3) เพื่อรองรับข้อจำกัด OS Sandbox และ Scoped Storage |
+| 1.2 | 05 ต.ค. 2569 | ทั้งทีม (LEAD, DESK, MOB, NET, QA) | ปรับปรุงโครงสร้าง FR/NFR แยกรายแพลตฟอร์ม, เพิ่ม SSIM และ iperf3 baseline |
+| 1.3 | 13 ต.ค. 2569 | ทั้งทีม | ยกระดับสู่มาตรฐาน ISO/IEC/IEEE 29148: กำหนด Priority (MoSCoW), Rationale, Verification Methods, Use Case Table (UC-01–UC-12), Assumptions & Dependencies, ปรับเกณฑ์ RAM/NFR ให้สะท้อนความเป็นจริง, และจัดทำ Traceability Matrix สมบูรณ์ 100% |
 
 ---
 
@@ -91,6 +101,13 @@
 * **OS-06:** ไม่มีระบบฐานข้อมูลกลาง บัญชีผู้ใช้ (User Account) หรือการเก็บ Log ผู้ใช้บนระบบคลาวด์
 * **OS-07:** ไม่มีความสามารถด้านการควบคุมอุปกรณ์ระยะไกล (Remote Control / Mouse-Keyboard Sharing)
 
+### 1.3.4 ข้อสมมติและความขึ้นต่อกัน (Assumptions and Dependencies)
+* **AS-01 (สภาวะเครือข่ายท้องถิ่น):** สันนิษฐานว่าเครือข่าย LAN/Wi-Fi ที่ใช้งานเปิดรับส่งข้อมูลแบบ Multicast (UDP พอร์ต 5353) และไม่มีการเปิดใช้งาน AP Isolation หรือ Client Isolation
+* **AS-02 (ความคลาดเคลื่อนของเวลาระบบ):** สันนิษฐานว่านาฬิกาประจำเครื่อง (Physical Wall Clock) ของแต่ละอุปกรณ์มีความคลาดเคลื่อนไม่เกิน $\pm 60$ วินาทีจากเวลามาตรฐาน (เพื่อสอดคล้องกับกลไก HLC และการป้องกัน Replay Attack)
+* **AS-03 (ความใกล้ชิดทางกายภาพระหว่างจับคู่):** สันนิษฐานว่าในขั้นตอนการจับคู่อุปกรณ์ (Pairing Flow) ผู้ใช้งานมีอุปกรณ์ทั้งสองเครื่องอยู่ในระยะสายตาและสามารถมองเห็นหน้าจอพร้อมกันเพื่อตรวจสอบความตรงกันของรหัส SAS 6 หลัก
+* **DE-01 (ความขึ้นต่อระบบจัดเก็บกุญแจปลอดภัยของ OS):** ระบบพึ่งพา Hardware/OS Secure Key Storage ของแต่ละระบบปฏิบัติการ (macOS/iOS Keychain, Windows CNG/DPAPI, Android Keystore API 29+) สำหรับการเก็บรักษา Private Key อัตลักษณ์อุปกรณ์
+* **DE-02 (สิทธิ์การเข้าถึงระบบเครือข่ายและระบบปฏิบัติการ):** ระบบพึ่งพาสิทธิ์อนุญาตการใช้งานเครือข่ายท้องถิ่น (Local Network Permission บน iOS 14+) และสิทธิ์การรัน Foreground Service / Notification บน Android 13+ เพื่อรักษาการเชื่อมต่อ Socket
+
 ---
 
 ## 1.4 ประโยชน์ที่ได้รับ (Expected Benefits)
@@ -149,17 +166,17 @@
 
 ---
 
-## 2.2 วิธีการและขั้นตอนการเก็บข้อมูล (Data Gathering Methodology)
+## 2.2 แผนการเก็บรวบรวมข้อมูลและการวิเคราะห์เบื้องต้น (Data Gathering Plan & Preliminary Analysis)
 
-การเก็บรวบรวมข้อมูลดำเนินการผ่าน 5 วิธีการ เพื่อให้ได้ข้อมูลครบถ้วนทั้งเชิงปริมาณและเชิงคุณภาพ:
+โครงการวางแผนการเก็บรวบรวมข้อมูลและสำรวจความต้องการผ่าน 5 กระบวนการ เพื่อให้ได้ข้อมูลครบถ้วนทั้งเชิงปริมาณและเชิงคุณภาพ:
 
 | รหัส | วิธีการเก็บข้อมูล | แหล่งข้อมูล / กลุ่มตัวอย่าง | รายละเอียดขั้นตอนและช่วงเวลา |
 |---|---|---|---|
-| **M1** | แบบสอบถามออนไลน์<br>(Online Survey) | ผู้ใช้อุปกรณ์ข้ามค่ายจำนวน **60 คน** | จัดทำแบบสอบถาม 18 ข้อ (Likert Scale 5 ระดับ และปลายเปิด) สำรวจพฤติกรรมการย้ายข้อมูล ความถี่ ปัญหาที่พบ และความต้องการฟีเจอร์ (เก็บข้อมูลสัปดาห์ที่ 1–2) |
-| **M2** | สัมภาษณ์เชิงลึกแบบกึ่งโครงสร้าง<br>(Semi-Structured Interview) | ตัวแทนจาก 3 กลุ่ม Persona รวม **9 คน** (กลุ่มละ 3 คน) | สัมภาษณ์แบบตัวต่อตัวคนละ 40–50 นาที เจาะลึกกระบวนการทำงานปัจจุบัน จุดติดขัด (Pain Points) และทัศนคติต่อความปลอดภัย นำมาวิเคราะห์ด้วย Thematic Analysis (สัปดาห์ที่ 2–3) |
-| **M3** | การสังเกตการณ์การใช้งานจริง<br>(Contextual Inquiry) | ผู้ใช้งานจริงจำนวน **6 คน** | กำหนดโจทย์ทดสอบ 5 สถานการณ์ (S1: ส่ง URL, S2: ส่งภาพหน้าจอ, S3: ส่งไฟล์ 2 GB, S4: ส่งข้อความมือถือสู่ PC, S5: ส่งภาพ PC สู่มือถือ) จับเวลาและนับจำนวนคลิก/ขั้นตอนการโต้ตอบ (สัปดาห์ที่ 3) |
-| **M4** | การวิเคราะห์ระบบเปรียบเทียบ<br>(Competitive Analysis) | ซอฟต์แวร์ 5 ระบบ (LocalSend, KDE Connect, AirDrop, Phone Link, ClipCascade) | ติดตั้ง ทดสอบใช้งานจริง และทำตารางประเมินขีดความสามารถด้านความเร็ว การรองรับแพลตฟอร์ม การซิงก์คลิปบอร์ด และความปลอดภัย (สัปดาห์ที่ 2–3) |
-| **M5** | การศึกษาข้อจำกัดทางเทคนิคของ OS<br>(Platform Constraints Study) | เอกสารทางการของ Apple, Microsoft, Google (4 OS) | ศึกษาข้อกำหนดด้าน Background Execution, Sandbox, สิทธิ์ Pasteboard และนโยบายความปลอดภัยของสโตร์ เพื่อกำหนดขอบเขตระบบที่เป็นไปได้จริง (สัปดาห์ที่ 1–4) |
+| **M1** | แบบสอบถามออนไลน์<br>(Online Survey) | กลุ่มเป้าหมายผู้ใช้อุปกรณ์ข้ามค่าย (เป้าหมาย 60 คน) | จัดทำแบบสอบถาม 18 ข้อ (Likert Scale 5 ระดับ และปลายเปิด) สำรวจพฤติกรรมการย้ายข้อมูล ความถี่ ปัญหาที่พบ และความต้องการฟีเจอร์ (แผนดำเนินงานสัปดาห์ที่ 1–2) |
+| **M2** | สัมภาษณ์เชิงลึกแบบกึ่งโครงสร้าง<br>(Semi-Structured Interview) | ตัวแทนจาก 3 กลุ่ม Persona รวม 9 คน (กลุ่มละ 3 คน) | สัมภาษณ์แบบตัวต่อตัวคนละ 40–50 นาที เจาะลึกกระบวนการทำงานปัจจุบัน จุดติดขัด (Pain Points) และทัศนคติต่อความปลอดภัย นำมาวิเคราะห์ด้วย Thematic Analysis (แผนดำเนินงานสัปดาห์ที่ 2–3) |
+| **M3** | การสังเกตการณ์การใช้งานจริง<br>(Contextual Inquiry) | ผู้ใช้งานจริงจำนวน 6 คน | กำหนดโจทย์ทดสอบ 5 สถานการณ์ (S1: ส่ง URL, S2: ส่งภาพหน้าจอ, S3: ส่งไฟล์ 2 GB, S4: ส่งข้อความมือถือสู่ PC, S5: ส่งภาพ PC สู่มือถือ) จับเวลาและนับจำนวนคลิก/ขั้นตอนการโต้ตอบ (แผนดำเนินงานสัปดาห์ที่ 3) |
+| **M4** | การวิเคราะห์ระบบเปรียบเทียบ<br>(Competitive Analysis) | ซอฟต์แวร์ 5 ระบบ (LocalSend, KDE Connect, AirDrop, Phone Link, ClipCascade) | ติดตั้ง ทดสอบใช้งานจริง และทำตารางประเมินขีดความสามารถด้านความเร็ว การรองรับแพลตฟอร์ม การซิงก์คลิปบอร์ด และความปลอดภัย (แผนดำเนินงานสัปดาห์ที่ 2–3) |
+| **M5** | การศึกษาข้อจำกัดทางเทคนิคของ OS<br>(Platform Constraints Study) | เอกสารทางการของ Apple, Microsoft, Google (4 OS) | ศึกษาข้อกำหนดด้าน Background Execution, Sandbox, สิทธิ์ Pasteboard และนโยบายความปลอดภัยของสโตร์ เพื่อกำหนดขอบเขตระบบที่เป็นไปได้จริง (แผนดำเนินงานสัปดาห์ที่ 1–4) |
 
 ---
 
@@ -169,7 +186,7 @@
 * **P-01 (ขั้นตอนซ้ำซ้อนสูง):** การย้ายข้อมูลทั่วไปต้องผ่านกระบวนการ 5–6 ขั้นตอน ส่งผลให้เสียเวลาสะสมในแต่ละวัน
 * **P-02 (คอขวดด้านความเร็ว):** การส่งไฟล์ 2 GB ผ่านคลาวด์หรือแชตต้องใช้เวลาเฉลี่ยมากกว่า 10–15 นาที เนื่องจากความเร็วถูกจำกัดโดยค่า Upload Speed ของอินเทอร์เน็ต
 * **P-03 (คุณภาพไฟล์เสียหาย):** รูปภาพและวิดีโอถูกลดทอนความละเอียดเนื่องจากบริการตัวกลางทำการบีบอัดไฟล์ซ้ำ
-* **P-04 (ความเสี่ยงข้อมูลหลุด):** ผู้ใช้ 68% จำใจส่งรหัสผ่านหรือข้อมูลส่วนบุคคลผ่านแชตหาตนเองเนื่องจากไม่มีทางเลือกอื่นที่เร็วกว่า
+* **P-04 (ความเสี่ยงข้อมูลหลุด):** ผู้ใช้ส่วนใหญ่จำใจส่งรหัสผ่าน Token หรือข้อมูลส่วนบุคคลผ่านแชตหาตนเองเนื่องจากไม่มีทางเลือกอื่นที่สะดวกรวดเร็วเพียงพอ
 * **P-05 (ซอฟต์แวร์เดิมมี Friction สูง):** โปรแกรมส่งไฟล์ P2P ในปัจจุบันบังคับให้ผู้ใช้ต้องกดยืนยันการรับทุกครั้ง และไม่มีระบบ Passive Clipboard Sync ข้ามค่าย
 * **P-06 (ปัญหาความเข้ากันได้ของภาพในคลิปบอร์ด):** การคัดลอกรูปภาพข้ามระหว่าง macOS และ Windows มักสูญเสียความโปร่งใส (Alpha Channel) หรือวางภาพไม่ติดเนื่องจากโครงสร้างไบนารีระดับ OS แตกต่างกัน
 
@@ -234,9 +251,23 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 *(แสดงขอบเขตของระบบ DropClip กับภายนอก: ผู้ใช้งาน, ระบบปฏิบัติการ, ที่เก็บกุญแจความปลอดภัย OS, เครือข่าย LAN, และอุปกรณ์คู่สนทนา Peer)*
 > *(หมายเหตุ: อ้างอิงแผนภาพกราฟิก Context Diagram ในเล่มรายงาน)*
 
-### 3.1.3 แผนภาพกรณีการใช้งาน (Use Case Diagram)
-ระบบประกอบด้วย 15 Use Cases หลัก ครอบคลุมการทำงานร่วมกันระหว่าง Actor: **End User**, **Peer Device**, และ **Internal Subsystems**
-> *(หมายเหตุ: อ้างอิงแผนภาพกราฟิก Use Case Diagram ในเล่มรายงาน)*
+### 3.1.3 กรณีการใช้งานของระบบ (Use Case Specifications)
+ระบบประกอบด้วย 12 กรณีการใช้งาน (Use Cases) หลัก ครอบคลุมการทำงานร่วมกันระหว่าง 3 Actors: **ผู้ใช้งาน (End User)**, **อุปกรณ์คู่สนทนา (Peer Device)**, และ **ระบบภายใน / ระบบปฏิบัติการ (Internal Subsystems / OS)**:
+
+| รหัส Use Case | ชื่อกรณีการใช้งาน | ผู้กระทำหลัก (Primary Actor) | เงื่อนไขก่อนเริ่ม (Pre-conditions) | คำอธิบายลำดับเหตุการณ์หลัก (Main Success Scenario) |
+|---|---|---|---|---|
+| **UC-01** | ค้นหาอุปกรณ์ในวง LAN<br>(Discover Peer Nodes) | End User / OS Daemon | เชื่อมต่อ LAN/Wi-Fi เดียวกัน | ระบบส่งและรับฟัง mDNS UDP 5353 นำรายชื่อโหนดมาแสดงบน Menubar/Tray UI |
+| **UC-02** | จับคู่อุปกรณ์แบบ QR Code<br>(Pair via QR & SAS) | End User | ค้นพบอุปกรณ์ใน LAN | ผู้ใช้สแกน QR Code ตรวจสอบรหัส SAS 6 หลักแบบ Commit-then-Reveal และกดยืนยันทั้งสองฝั่ง |
+| **UC-03** | จับคู่อุปกรณ์แบบ Manual IP + PIN<br>(Pair via Salted PIN) | End User | mDNS ถูกบล็อกหรือเชื่อมตรง | ผู้ใช้ระบุ IP + PIN 6 หลัก ระบบใช้ PIN เป็น local salt คำนวณ SAS โดยไม่ส่ง PIN บนสายเครือข่าย |
+| **UC-04** | ซิงก์คลิปบอร์ดข้อความอัตโนมัติ<br>(Sync Text Passive — Tier 1) | End User (Copy/Paste) | อุปกรณ์จับคู่กันแล้ว (Trusted) | ผู้ใช้กด Copy บน macOS/Windows ระบบดักจับ ตรวจสอบ suppression ส่งผ่าน WebSocket และเขียนลงคลิปบอร์ดปลายทางทันที |
+| **UC-05** | ซิงก์คลิปบอร์ดรูปภาพข้าม OS<br>(Sync Image with Normalization) | End User | อุปกรณ์จับคู่กันแล้ว | ผู้ใช้ Copy ภาพ ระบบแปลงโครงสร้าง TIFF/DIB เป็น PNG ส่งผ่าน Data Plane และสังเคราะห์ลงคลิปบอร์ดปลายทาง |
+| **UC-06** | ส่งคลิปบอร์ดจากมือถือสู่เดสก์ท็อป<br>(Send Mobile Clipboard — Tier 2/3) | End User | มือถืออยู่ในวง LAN เดียวกัน | ผู้ใช้แตะ Quick Settings Tile หรือ Share Sheet ระบบดึงคลิปบอร์ดส่งไปยังเดสก์ท็อปผ่าน WebSocket |
+| **UC-07** | รับคลิปบอร์ดบนมือถือ<br>(Receive Mobile Clipboard — Tier 2/3) | Peer Device (Desktop) | มือถือรัน Foreground Service / App | เดสก์ท็อปส่งข้อความมา Android เขียนลงคลิปบอร์ดอัตโนมัติ / iOS บันทึกลงคิวเพื่อนำเข้าเมื่อเปิดแอป |
+| **UC-08** | กรองข้อมูลอ่อนไหวจากโปรแกรมรหัสผ่าน<br>(Filter Sensitive Content) | Password Manager / User | เปิดใช้งานระบบ DropClip | ผู้ใช้ Copy รหัสผ่านจาก Password Manager ระบบตรวจจับ Sensitive Marker และยกเลิกการส่งออก 100% |
+| **UC-09** | ถ่ายโอนไฟล์ขนาดใหญ่แบบสตรีมมิ่ง<br>(Stream File / Folder Transfer) | End User | อุปกรณ์จับคู่กันแล้ว | ผู้ใช้ลากวางไฟล์ลง Dropzone ระบบส่งข้อเสนอ สตรีมไบนารีบล็อกละ 1 MiB ตรวจ Checksum และบันทึกดิสก์ |
+| **UC-10** | กู้คืนและส่งไฟล์ต่อจากจุดเดิม<br>(Resume Interrupted Transfer) | Peer Device / End User | การส่งไฟล์หลุดกลางคัน | ระบบตรวจสอบ Sidecar `.part.json` ดึง Byte Offset ล่าสุด และเริ่มสตรีมส่วนที่เหลือจนสมบูรณ์ |
+| **UC-11** | เพิกถอนสิทธิ์อุปกรณ์ในคลัสเตอร์<br>(Revoke Device with Signed Broadcast)| End User | ต้องการตัดอุปกรณ์ออกจากคลัสเตอร์| ผู้ใช้สั่งเพิกถอน ระบบตัดการเชื่อมต่อในเครื่อง ส่ง Signed Revocation Broadcast และแจ้งเตือนผู้ใช้ทั่วคลัสเตอร์ |
+| **UC-12** | กำหนดค่าระบบและเปิดทำงานพร้อม OS<br>(System Settings & Auto-Start) | End User | ติดตั้งแอปพลิเคชันแล้ว | ผู้ใช้ปรับการตั้งค่า (โฟลเดอร์ปลายทาง, TTL, Auto-Start) ระบบบันทึกและลงทะเบียน service กับ OS |
 
 ---
 
@@ -245,7 +276,10 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 
 ---
 
-### FR-01: การค้นหาและประกาศตัวตนบนเครือข่าย (Zero-Configuration Node Discovery)
+#### FR-01: การค้นหาและประกาศตัวตนบนเครือข่าย (Zero-Configuration Node Discovery)
+* **Priority:** Must Have (MoSCoW)
+* **Rationale:** เพื่อให้อุปกรณ์ในคลัสเตอร์ตรวจจับและค้นพบกันเองได้โดยอัตโนมัติบนวง Subnet เดียวกัน ตัดความจำเป็นที่ผู้ใช้ต้องจำหรือพิมพ์หมายเลข IP Address (ตอบสนอง UR-07, UR-09)
+* **Verification Method:** Test (T) & Demonstration (D) — ทดสอบการส่งและแยกวิเคราะห์ mDNS UDP 5353 พร้อมสาธิตการปรากฏของอุปกรณ์บน UI ภายใน 3 วินาที
 * **Description:** ระบบต้องประกาศบริการและค้นหาอุปกรณ์ DropClip อื่น ๆ ในเครือข่ายท้องถิ่นวงเดียวกันโดยอัตโนมัติ
 * **Input:** สัญญาณ mDNS Multicast Announcement Packet บนพอร์ต UDP 5353
 * **Process:**
@@ -260,18 +294,21 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-02: การจับคู่อุปกรณ์และการแลกเปลี่ยนกุญแจ (Secure Device Pairing & Key Exchange)
+* **Priority:** Must Have (MoSCoW)
+* **Rationale:** สร้างความเชื่อถือระดับการเข้ารหัสสองทิศทาง (Mutual Trust) และตัดความเสี่ยง Man-in-the-Middle (MITM) อย่างสมบูรณ์ผ่าน Visual Out-of-Band Channel และ Commit-then-Reveal โดยไม่มีการส่ง PIN หรือค่าที่ derive จาก PIN ผ่านเครือข่าย (ตอบสนอง UR-04, UR-07)
+* **Verification Method:** Test (T) & Inspection (I) — ตรวจสอบความถูกต้องของรหัส SAS เทียบกับ Test Vector และตรวจ Network Packet Capture ว่าไม่มี PIN รั่วไหล
 * **Description:** ระบบต้องอนุญาตให้ผู้ใช้สร้างความเชื่อถือระหว่างอุปกรณ์สองเครื่องผ่านการแลกเปลี่ยนกุญแจ ECDSA P-256 และยืนยันรหัส SAS แบบ Commit-then-Reveal พร้อมรองรับ Manual PIN Mode ที่ปราศจากการส่ง PIN บนสายเครือข่าย เพื่อป้องกันการโจมตี Active MITM Brute-force
 * **Input:** ข้อมูล QR Code Payload (IP, Port, Fingerprint, Nonce_A, Expire Time) หรือการระบุ Host IP + PIN 6 หลัก และการยืนยันรหัสจากผู้ใช้
 * **Process (Commit-then-Reveal Scheme & Zero PIN on Wire):**
-  1. เครื่องริเริ่ม (Host) สุ่มสร้างค่า `nonce_A` 16 ไบต์ (CSPRNG) กำหนดอายุ 60 วินาที แสดงผ่าน QR Code บนหน้าจอ (Visual Out-of-Band Channel) หรือแสดง PIN 6 หลักในโหมด Manual PIN
-  2. เครื่องที่สอง (Client) ได้รับ `nonce_A` ผ่านการสแกน QR Code (หรือผู้ใช้พิมพ์ PIN 6 หลักในโหมด Manual โดยระบบ Client ห้ามส่งค่า PIN หรือ Hash ของ PIN บนเครือข่ายเด็ดขาด)
-  3. Client สุ่มค่า `nonce_B` 16 ไบต์ และส่ง Commitment $C_B = \text{SHA-256}(\text{"dropclip-commit-v1:"} \parallel nonce_B \parallel fp_B)$ ผ่าน `POST /api/v1/pair` ใน mTLS Handshake ไปยัง Host
-  4. Client เปิดเผย `nonce_B` ผ่าน `POST /api/v1/pair/confirm`; Host ตรวจสอบความถูกต้องของ Commitment $C_B$
-  5. ทั้งสองฝั่งคำนวณรหัสตัวเลข 6 หลัก (Short Authentication String - SAS):
+  1. อ้างอิงข้อกำหนดทางคณิตศาสตร์และลำดับ Handshake ตาม **Protocol Spec §5.4 และ §5.5** เป็นศูนย์กลางความถูกต้อง
+  2. เครื่องริเริ่ม (Host) สุ่มสร้างค่า `nonce_A` 16 ไบต์ (CSPRNG) กำหนดอายุ 60 วินาที แสดงผ่าน QR Code บนหน้าจอ หรือแสดง PIN 6 หลักในโหมด Manual PIN
+  3. เครื่องที่สอง (Client) ได้รับ `nonce_A` ผ่านการสแกน QR Code (หรือผู้ใช้พิมพ์ PIN 6 หลักในโหมด Manual โดยระบบ Client ห้ามส่งค่า PIN หรือ Hash ของ PIN บนเครือข่ายเด็ดขาด)
+  4. Client สุ่มค่า `nonce_B` 16 ไบต์ และส่ง Commitment $C_B = \text{SHA-256}(\text{"dropclip-commit-v1:"} \parallel nonce_B \parallel fp_B)$ ผ่าน `POST /api/v1/pair` ใน mTLS Handshake ไปยัง Host
+  5. Client เปิดเผย `nonce_B` ผ่าน `POST /api/v1/pair/confirm`; Host ตรวจสอบความถูกต้องของ Commitment $C_B$
+  6. ทั้งสองฝั่งคำนวณรหัสตัวเลข 6 หลัก (Short Authentication String - SAS):
      - *QR Mode:* $\text{SAS} = \text{SHA-256}(fp_{lo} \parallel fp_{hi} \parallel nonce_A \parallel nonce_B) \bmod 10^6$
      - *Manual PIN Mode (Zero PIN on Wire):* $\text{SAS} = \text{SHA-256}(fp_{lo} \parallel fp_{hi} \parallel nonce_A \parallel nonce_B \parallel \text{"dropclip-pin-salt-v1:"} \parallel \text{UTF8}(\text{PIN})) \bmod 10^6$
-  6. แสดงรหัส SAS บนหน้าจอทั้งสองเครื่องเพื่อให้ผู้ใช้ตรวจสอบความตรงกันด้วยตาเปล่า
-  7. เมื่อผู้ใช้กดปุ่มยืนยันทั้งสองฝั่ง ระบบจะบันทึก Key Fingerprint ของอีกฝ่ายลงใน Trusted Device Store ถาวร
+  7. แสดงรหัส SAS บนหน้าจอทั้งสองเครื่องเพื่อให้ผู้ใช้ตรวจสอบความตรงกันด้วยตาเปล่า และส่ง `POST /api/v1/pair/finalize` เมื่อผู้ใช้กดปุ่มยืนยันทั้งสองฝั่ง บันทึก Key Fingerprint ลงใน Trusted Device Store ถาวร
 * **Output:** อุปกรณ์ทั้งสองเข้าสู่สถานะ Paired/Trusted และเปิดช่องทาง WebSocket สื่อสารที่ปลอดภัย
 * **Data Validation:** ตรวจสอบอายุของ Nonce (หมดอายุใน 60 วินาที), ค่า Commitment และรูปแบบ Key Fingerprint (Hex 64 ตัวอักษร)
 * **Access Control & Security:** 
@@ -282,6 +319,9 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-03A: การซิงก์คลิปบอร์ดระดับ Tier 1 — Full Passive (macOS & Windows)
+* **Priority:** Must Have (MoSCoW)
+* **Rationale:** หัวใจหลักของประสบการณ์ Desktop Continuity มอบการทำงานแบบ Zero-Interaction คัดลอกและวางได้ทันทีข้ามระหว่าง macOS และ Windows (ตอบสนอง UR-01, UR-06)
+* **Verification Method:** Test (T) & Demonstration (D) — ทดสอบการดักจับ Event วัดค่าความหน่วง Latency p95 < 1,000 ms และสาธิตการกด Copy/Paste ข้ามระบบ
 * **Description:** ระบบต้องเฝ้าติดตามและซิงก์ข้อมูลคลิปบอร์ดสองทิศทางระหว่าง macOS และ Windows โดยอัตโนมัติในเบื้องหลังโดยไม่ต้องอาศัยการกดปุ่มใด ๆ จากผู้ใช้
 * **Target Platform:** macOS 12.0 ขึ้นไป, Windows 10 (Build 19041) ขึ้นไป
 * **Pre-conditions:** อุปกรณ์ทั้งสองต้องจับคู่กันสำเร็จ (Trusted State) และเชื่อมต่อผ่าน WebSocket Control Plane สมบูรณ์
@@ -293,14 +333,19 @@ DropClip ได้รับการออกแบบภายใต้สถ�
   2. *ฝั่งส่ง:* ตรวจสอบ Suppression Window (800 ms และค่า Hash ต้องไม่ตรงกับข้อมูลที่เพิ่งเขียน) หากผ่านเกณฑ์ ให้ส่งข้อมูลพร้อมค่า Hybrid Logical Clock (HLC) ไปยังเครื่องปลายทางผ่าน WebSocket
   3. *ฝั่งรับ:* ผสานค่า HLC, ตรวจสอบลำดับด้วยนโยบาย Last-Writer-Wins (LWW บน HLC), บันทึก Hash ลง Suppression Table และเขียนข้อมูลลง System Clipboard ของเครื่องปลายทางทันที
 * **Output:** ข้อมูลปรากฏในคลิปบอร์ดของเครื่องปลายทาง พร้อมใช้งานด้วยคำสั่ง Paste (Ctrl+V / Cmd+V) ทันที
-* **Data Validation:** ตรวจสอบขนาด Payload หากเกิน 32 KiB ต้องสลับไปส่งแบบ Blob ผ่าน Data Plane
+* **Data Routing Threshold:** 
+  - ข้อความ Plain Text ขนาด $\le 32\text{ KiB}$: ส่งแบบ Inline ผ่าน WebSocket Control Plane Frame ทันที
+  - ข้อความ Plain Text ขนาด $> 32\text{ KiB}$ และข้อมูลรูปภาพทั้งหมด: บันทึกเป็น Blob ชั่วคราว และสลับไปส่งผ่าน HTTP Chunked Data Plane
 * **Exception Handling:** หากเกิดเหตุการณ์ Clipboard Access Lock จากแอปพลิเคชันอื่น ให้หน่วงเวลาและพยายามเข้าถึงใหม่ (Retry with Backoff) สูงสุด 3 ครั้ง หากไม่สำเร็จให้บันทึก Warning Log โดยไม่ทำให้โปรแกรม Crash
 
 ---
 
 ### FR-03B: การซิงก์คลิปบอร์ดระดับ Tier 2 — Assisted Sync (Android 10+)
+* **Priority:** Should Have (MoSCoW)
+* **Rationale:** มอบประสบการณ์ Continuity สูงสุดบนระบบปฏิบัติการ Android ภายใต้ข้อจำกัดความเป็นส่วนตัวของ Android 10+ ที่ไม่อนุญาตให้อ่านคลิปบอร์ดเบื้องหลัง (ตอบสนอง UR-01, UR-06)
+* **Verification Method:** Test (T) & Demonstration (D) — ทดสอบบน Android Emulator/อุปกรณ์จริง ตรวจสอบการส่งผ่าน Quick Settings Tile และ Notification
 * **Description:** ระบบต้องรองรับการเขียนข้อมูลคลิปบอร์ดที่ส่งมาจาก Desktop ลงสู่ Android อัตโนมัติ และรองรับการดึงข้อมูลคลิปบอร์ดจาก Android ส่งกลับไปยัง Desktop ผ่านการสั่งการแบบขั้นตอนเดียว (1-Click Action)
-* **Target Platform:** Android 10 (API Level 29) ถึง Android 14+
+* **Target Platform:** Android 10 (API Level 29) ถึง Android 15
 * **Pre-conditions:** แอปพลิเคชัน DropClip เปิดทำงาน Foreground Service (`foregroundServiceType="connectedDevice"` ตาม ADR-007) พร้อมแสดง Persistent Notification และได้รับสิทธิ์เครือข่ายแล้ว
 * **Input:**
   - *ทิศทาง Inbound (Desktop → Android):* ข้อความ `clipboard.update` ผ่าน WebSocket
@@ -324,8 +369,11 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-03C: การซิงก์คลิปบอร์ดระดับ Tier 3 — Manual-Assist Sync (iOS 15+)
+* **Priority:** Could Have (MoSCoW — Assisted Stretch Target)
+* **Rationale:** มอบช่องทางการทำงานร่วมกับอุปกรณ์ iOS 15+ ภายใต้ข้อจำกัดเข้มงวดของ Apple Sandbox, Paste Permission Prompt, และ Memory Quota (ตอบสนอง UR-01, UR-06)
+* **Verification Method:** Test (T) & Inspection (I) — ตรวจวัด Peak RAM < 30 MB ใน Share Extension และตรวจสอบโค้ด Native Swift
 * **Description:** ระบบต้องรองรับการส่งข้อความ ลิงก์ และรูปภาพจาก iOS ไปยังอุปกรณ์อื่นผ่านส่วนขยายระบบ และรองรับการนำเข้าคลิปบอร์ดจากเครื่องอื่นอย่างปลอดภัย
-* **Target Platform:** iOS 15.0 ถึง iOS 17+
+* **Target Platform:** iOS 15.0 ถึง iOS 18
 * **Pre-conditions:** ติดตั้งแอปพลิเคชัน DropClip และเปิดใช้งานสิทธิ์ Local Network Access
 * **Input:**
   - *ทิศทาง Outbound (iOS → Others):* ข้อมูลที่ส่งผ่าน Share Sheet Extension, การกด Action Button (iPhone 15 Pro+), หรือการกดปุ่มบน Lock/Home Screen Widget
@@ -348,33 +396,40 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-04: การซิงก์คลิปบอร์ดและการป้องกันการวนซ้ำ (Clipboard Synchronization & Loop Prevention)
+* **Priority:** Must Have (MoSCoW)
+* **Rationale:** ควบคุมไม่ให้เกิด Infinite Loop สลับส่งไปมา และรับประกัน Eventual Consistency ของข้อมูลคลิปบอร์ดทั่วคลัสเตอร์ด้วย Hybrid Logical Clock (HLC) (ตอบสนอง UR-01, UR-06)
+* **Verification Method:** Test (T) & Analysis (A) — จำลองส่งข้อมูล 1,000 เหตุการณ์พร้อมกันบน 4 โหนด และวิเคราะห์ Convergence ของข้อมูล
 * **Description:** ระบบต้องกระจายข้อมูลคลิปบอร์ดไปยังอุปกรณ์ที่จับคู่ พร้อมระงับการวนซ้ำของข้อมูล และผสานข้อมูลด้วยหลักการ Hybrid Logical Clock (HLC)
 * **Input:** วัตถุคลิปบอร์ดที่ตรวจพบจาก FR-03A/B/C หรือข้อความ `clipboard.update` จากอุปกรณ์อื่น
 * **Process (ขาส่ง):**
   1. ตรวจสอบ Suppression Window: หากอยู่ในช่วงเวลา 800 ms หลังระบบเพิ่งเขียนข้อมูลลงคลิปบอร์ด และค่าแฮชตรงกับข้อมูลที่เพิ่งเขียน ให้ยกเลิกการส่ง (ป้องกัน Echo Loop)
   2. ตรวจสอบสถานะ Concealed: หากข้อมูลติดสถานะอ่อนไหว ให้ยกเลิกการส่งทันที (FR-05)
   3. ทำการ Tick ค่า Hybrid Logical Clock (HLC: Physical Milliseconds + Logical Counter) ของเครื่องตนเอง
-  4. หากข้อมูล ≤ 32 KiB ส่งผ่าน WebSocket ทันที, หากข้อมูล > 32 KiB ให้บันทึกเป็น Blob ชั่วคราวและส่งเฉพาะ Reference ID
+  4. หากข้อมูล $\le 32\text{ KiB}$ ส่งผ่าน WebSocket ทันที, หากข้อมูล $> 32\text{ KiB}$ ให้บันทึกเป็น Blob ชั่วคราวและส่งเฉพาะ Reference ID
 * **Process (ขารับ):**
-  1. ตรวจสอบ Clock Drift หากค่าเวลา `l` ของผู้ส่งล้ำหน้าเกิน 60 วินาที ให้ปฏิเสธข้อความ
-  2. รวมค่า HLC: `hlc = hlc.merge(remote_hlc)`
-  3. ตรวจสอบ Message ID กับ LRU Cache (ขนาด 200 รายการ) หากซ้ำให้ทิ้งข้อมูล
-  4. แก้ไขข้อขัดแย้งด้วยหลักการ Last-Writer-Wins (LWW) บนค่า HLC หากเท่ากัน ให้ตัดสินด้วยการเปรียบเทียบค่า Device ID
-  5. ตั้งค่า Suppression Window และค่าแฮชล่าสุด ก่อนสั่งเขียนข้อมูลลงคลิปบอร์ดของระบบปฏิบัติการ
+  1. ตรวจสอบโหนดต้นทาง: หาก `origin == myId` ให้ทิ้งข้อมูลทันที (ป้องกัน Self-Reflection Loop)
+  2. ตรวจสอบ Clock Drift หากค่าเวลา `l` ของผู้ส่งล้ำหน้าเกิน 60 วินาที ให้ปฏิเสธข้อความ (`clipboard.clock_drift_exceeded`)
+  3. รวมค่า HLC: `hlc = hlc.merge(remote_hlc)`
+  4. ตรวจสอบ Message ID กับ LRU Cache (ขนาด 200 รายการ) หากซ้ำให้ทิ้งข้อมูล
+  5. แก้ไขข้อขัดแย้งด้วยหลักการ Last-Writer-Wins (LWW) บนค่า HLC หากเท่ากัน ให้ตัดสินด้วยการเปรียบเทียบค่า Device ID
+  6. ตั้งค่า Suppression Window และค่าแฮชล่าสุด ก่อนสั่งเขียนข้อมูลลงคลิปบอร์ดของระบบปฏิบัติการ
 * **Output:** ข้อมูลปรากฏในคลิปบอร์ดของอุปกรณ์ปลายทางพร้อมใช้งาน โดยข้อมูลใหม่ที่คัดลอกจากเครื่องออฟไลน์จะไม่ถูกทับทิ้ง
 * **Data Validation:** ตรวจสอบความสมบูรณ์ของ JSON Envelope และความถูกต้องของค่าแฮชข้อมูล
 
 ---
 
 ### FR-05: การคัดกรองข้อมูลลับและการทำลายข้อมูลตามกำหนดเวลา (Sensitive Content Filtering & TTL)
+* **Priority:** Must Have (MoSCoW)
+* **Rationale:** ป้องกันไม่ให้รหัสผ่านหรือข้อมูลส่วนบุคคลที่คัดลอกจาก Password Managers รั่วไหลออกสู่เครือข่ายโดยไม่ตั้งใจ (ตอบสนอง UR-04, UR-08)
+* **Verification Method:** Test (T) & Inspection (I) — ทดสอบคัดลอกข้อมูล 100 ครั้ง จาก 1Password, Bitwarden, KeePass, Keychain และตรวจ Wireshark Packet Trace
 * **Description:** ระบบต้องตรวจจับและระงับการส่งข้อมูลอ่อนไหวจากโปรแกรมจัดการรหัสผ่าน และล้างข้อมูลชั่วคราวตามเวลาที่กำหนด
 * **Input:** Metadata ชนิดคลิปบอร์ดจาก OS และค่าคอนฟิกูเรชัน TTL
 * **Process:**
-  1. ตรวจสอบ Flag ข้อมูลลับระดับ OS:
-     - macOS: ตรวจสอบ Pasteboard Type `org.nspasteboard.ConcealedType`, `TransientType`, `AutoGeneratedType`
-     - Windows: ตรวจสอบฟอร์แมต `ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory` = 0
-     - Android: ตรวจสอบ `ClipDescription.EXTRA_IS_SENSITIVE`
-  2. หากพบ Flag ดังกล่าว ให้ทำการ Drop ข้อมูลทิ้งทันที บันทึก Log เฉพาะประเภทข้อมูล (ห้ามบันทึกเนื้อหา)
+  1. ตรวจสอบ Flag ข้อมูลลับระดับ OS ครบ 5 รูปแบบมาตรฐาน:
+     - macOS: `org.nspasteboard.ConcealedType`, `org.nspasteboard.TransientType` (รวมถึง `com.agilebits.onepassword`)
+     - Windows: `ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory` (เมื่อมีค่าเป็น 0 / FALSE)
+     - Android: `ClipDescription.EXTRA_IS_SENSITIVE` / `Clipboard.EXTRA_IS_SENSITIVE`
+  2. หากพบ Flag ดังกล่าว ให้ทำการ Drop ข้อมูลทิ้งทันที บันทึก Log เฉพาะประเภทข้อมูล (ห้ามบันทึกเนื้อหาเด็ดขาด)
   3. สำหรับข้อมูลคลิปบอร์ดทั่วไปที่มีการกำหนดค่า TTL (เช่น ข้อความสั้น 60 วินาที) ให้ตั้งตัวนับเวลาถอยหลัง
   4. เมื่อครบกำหนดเวลา TTL ระบบตรวจสอบว่าข้อมูลบนคลิปบอร์ดปัจจุบันยังคงตรงกับข้อมูลเดิมหรือไม่ หากตรงกันจึงสั่งล้างคลิปบอร์ด
 * **Output:** ข้อมูลลับไม่ถูกส่งออกนอกเครื่อง และข้อมูลชั่วคราวถูกล้างตามเวลาที่กำหนด
@@ -383,6 +438,9 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-06: การแปลงโครงสร้างไบนารีภาพข้ามระบบปฏิบัติการ (Cross-OS Image Normalization)
+* **Priority:** Must Have (MoSCoW)
+* **Rationale:** แก้ปัญหาความไม่เข้ากันของข้อมูลภาพในคลิปบอร์ดระหว่าง macOS และ Windows รักษา Alpha Transparency และคุณภาพของภาพระดับพิกเซล (ตอบสนอง UR-03)
+* **Verification Method:** Test (T) & Demonstration (D) — คำนวณค่า SSIM เปรียบเทียบภาพต้นฉบับกับภาพปลายทาง (เป้าหมาย SSIM $\ge 0.99$) และทดสอบ Paste บน Photoshop/Paint
 * **Description:** ระบบต้องแปลงข้อมูลไบนารีของรูปภาพในคลิปบอร์ดให้สอดคล้องกับโครงสร้างของระบบปฏิบัติการปลายทางโดยไม่สูญเสียคุณภาพ
 * **Input:** สตรีมไบนารีรูปภาพจากคลิปบอร์ดต้นทาง
 * **Process:**
@@ -397,6 +455,9 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-07: การส่งไฟล์แบบสตรีมมิ่งผ่าน Data Plane (High-Throughput File Transfer Sender)
+* **Priority:** Must Have (MoSCoW)
+* **Rationale:** เพื่อให้การถ่ายโอนไฟล์ขนาดใหญ่ (4 GB บนมือถือ, 10 GB บน Desktop) ทำได้ด้วยความเร็วสูงเต็มประสิทธิภาพของเครือข่าย โดยใช้หน่วยความจำคงที่ ไม่ก่อให้เกิดสภาวะ Out-of-Memory (ตอบสนอง UR-02, UR-03, UR-10)
+* **Verification Method:** Test (T) & Demonstration (D) — ทดสอบส่งไฟล์ 1 GB และ 10 GB วัด Throughput เทียบกับ iperf3 baseline และบันทึก Memory Profiler
 * **Description:** ระบบต้องส่งไฟล์และโฟลเดอร์ในรูปแบบไบนารีสตรีมมิ่งโดยใช้หน่วยความจำคงที่ ไม่จำกัดขนาดไฟล์ตามโปรโตคอล (รองรับไฟล์ระดับ 4 GB บนมือถือ และ 10 GB บน Desktop)
 * **Input:** รายการไฟล์หรือโฟลเดอร์จากการลากวาง (Drag-and-Drop) หรือการเลือกไฟล์ของผู้ใช้
 * **Process:**
@@ -412,12 +473,15 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-08: การรับไฟล์อัตโนมัติและการตรวจสอบความถูกต้อง (Zero-Click File Receiver & Integrity Check)
-* **Description:** ระบบต้องรับไฟล์ บันทึกข้อมูลลงดิสก์อย่างปลอดภัย และตรวจสอบความถูกต้องสมบูรณ์ของข้อมูลอัตโนมัติ
+* **Priority:** Must Have (MoSCoW)
+* **Rationale:** อำนวยความสะดวกในการรับไฟล์ พร้อมป้องกันการโจมตี Directory Traversal และมัลแวร์ผ่าน Path Sanitization, OS Quarantine และ Checksum Verification (ตอบสนอง UR-05, UR-06)
+* **Verification Method:** Test (T) & Inspection (I) — ทดสอบ Path Traversal Attack Suite ครบ 12 รูปแบบ และตรวจสอบการแนบ Quarantine Attribute บน OS
+* **Description:** ระบบต้องรับไฟล์ บันทึกข้อมูลลงดิสก์อย่างปลอดภัย และตรวจสอบความถูกต้องสมบูรณ์ของข้อมูลอัตโนมัติ (โดยมีค่าเริ่มต้นการรับไฟล์อัตโนมัติเป็น ปิด/Disabled เพื่อความปลอดภัยสูงสุด และผู้ใช้สามารถเปิดใช้งานเฉพาะอุปกรณ์ที่เชื่อถือได้)
 * **Input:** HTTP Data Stream จากเครื่องส่งที่ได้รับอนุญาต
 * **Process:**
   1. ตรวจสอบสิทธิ์โหนดต้นทางผ่าน TLS Certificate Pinning หากไม่ผ่านให้ตอบกลับ HTTP 403 Forbidden
   2. ทำความสะอาดพาธไฟล์ (Path Sanitization): ปฏิเสธพาธที่มี `..`, Null Byte, Absolute Path หรืออักขระต้องห้ามของ OS ครบ 12 รูปแบบ
-  3. ตรวจสอบพื้นที่ว่างบนดิสก์ปลายทาง หากพื้นที่ไม่พอ ให้ยกเลิกและแจ้งเตือนผู้ใช้
+  3. ตรวจสอบพื้นที่ว่างบนดิสก์ปลายทาง หากพื้นที่ไม่พอ ให้ยกเลิกและแจ้งเตือนผู้ใช้ (`507 E_DISK_FULL`)
   4. สตรีมข้อมูลลงไฟล์ชั่วคราว `.part` และคำนวณผลรวมแฮช SHA-256 ควบคู่ไปกับการเขียนลงดิสก์ พร้อมบันทึก Checkpoint ลง sidecar ทุก 64 MiB
   5. เมื่อสตรีมครบถ้วน เปรียบเทียบผลรวมแฮชกับค่าที่ต้นทางแจ้ง หากถูกต้องตรงกัน เปลี่ยนชื่อไฟล์จาก `.part` เป็นชื่อจริงและย้ายเข้าโฟลเดอร์ปลายทาง
   6. แสดงการแจ้งเตือน (System Notification) ให้ผู้ใช้ทราบ
@@ -427,11 +491,14 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-09: การส่งต่อไฟล์จากจุดที่ค้าง (Resumable Transfer Handling)
+* **Priority:** Must Have (MoSCoW)
+* **Rationale:** ป้องกันการสูญเสียเวลาและแบนด์วิดท์เมื่อสัญญาณ Wi-Fi ขาดหายระหว่างส่งไฟล์ขนาดใหญ่ โดยสามารถสตรีมต่อจากจุด Checkpoint ล่าสุดได้ทันที (ตอบสนอง UR-02, UR-10)
+* **Verification Method:** Test (T) & Demonstration (D) — จำลองการตัดการเชื่อมต่อระหว่างสตรีมไฟล์ขนาดใหญ่ และตรวจสอบการส่งต่อจนสำเร็จโดยมี SHA-256 ตรงกับต้นฉบับ
 * **Description:** ระบบต้องสามารถกู้คืนและส่งไฟล์ต่อจากจุดเดิมได้ทันทีเมื่อการเชื่อมต่อหลุดกลางคัน โดยใช้ระบบ Checkpoints ทุก 64 MiB
 * **Input:** Transfer ID และ Item ID ของธุรกรรมที่ยังไม่สมบูรณ์
 * **Process:**
   1. เมื่อการเชื่อมต่อเครือข่ายกลับมา โหนดต้นทางส่งคำขอสอบถามสถานะไปยังโหนดปลายทาง
-  2. โหนดปลายทางกู้คืน Hasher State จาก Checkpoint ล่าสุดใน sidecar `.part.json` ทำการ rehash เฉพาะส่วนต่างระดับสั้น ๆ แล้วตอบกลับค่า Byte Offset ปัจจุบัน (< 200 ms)
+  2. โหนดปลายทางอ่านข้อมูล Checkpoint ล่าสุดจาก Sidecar `.part.json` (ซึ่งบันทึกผลรวมแฮชของบล็อก 64 MiB ที่บันทึกเสร็จสมบูรณ์แล้ว) ตรวจสอบความถูกต้องของขนาดไฟล์บนดิสก์จริง และตอบกลับค่า Byte Offset ของขอบเขตบล็อกล่าสุด
   3. โหนดต้นทางเลื่อน Pointer การอ่านไฟล์ (Seek) ไปยัง Byte Offset นั้น แล้วเริ่มสตรีมข้อมูลส่วนที่เหลือ
   4. ทำการคำนวณแฮช SHA-256 แบบเต็มไฟล์เพื่อยืนยันความถูกต้องในขั้นตอนสุดท้าย
 * **Output:** กระบวนการถ่ายโอนไฟล์ดำเนินต่อจนเสร็จสมบูรณ์โดยไม่ต้องส่งข้อมูลใหม่ตั้งแต่ต้น
@@ -440,11 +507,14 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-10: การจัดการสถานะ การตกลงเวอร์ชัน และการเชื่อมต่อใหม่อัตโนมัติ (Connection State, Protocol Negotiation & Reconnection)
+* **Priority:** Must Have (MoSCoW)
+* **Rationale:** รักษาสถานะช่องทางการสื่อสารให้พร้อมใช้งานต่อเนื่อง และเปิดให้อุปกรณ์ที่มีเวอร์ชันโปรโตคอลต่างกันสื่อสารร่วมกันได้ตามช่วงที่รองรับ (ตอบสนอง UR-07, UR-09)
+* **Verification Method:** Test (T) & Analysis (A) — ทดสอบจำลอง Handshake ระหว่างโหนดต่างเวอร์ชัน และทดสอบการเชื่อมต่อใหม่หลังตัดสัญญาณ
 * **Description:** ระบบต้องเฝ้าระวังสถานะของช่องทางการสื่อสาร ตกลงเวอร์ชันโปรโตคอลระหว่างอุปกรณ์ และเชื่อมต่อใหม่โดยอัตโนมัติเมื่อเกิดข้อผิดพลาด
 * **Input:** ข้อมูล `hello` handshake และสถานะการรับส่ง Heartbeat (Ping/Pong) บน WebSocket
 * **Process:**
   1. *การตกลงเวอร์ชัน (Protocol Negotiation):* ในขั้นตอน Handshake ผ่านข้อความ `hello` และ `hello.ack`:
-     - แต่ละโหนดระบุเวอร์ชันโปรโตคอลปัจจุบัน `v` และเวอร์ชันต่ำสุดที่รองรับ `min_supported_v`
+     - แต่ละโหนดระบุเวอร์ชันโปรโตคอลปัจจุบัน `v` และเวอร์ชันต่ำสุดที่รองรับ `min_v` (หรือ `min_supported_v`)
      - ตรวจสอบความเข้ากันได้: $\min(\text{local.v}, \text{remote.v}) \ge \max(\text{local.min\_v}, \text{remote.min\_v})$
      - หากเข้ากันได้ ให้ใช้เวอร์ชันที่ต่ำกว่าในคู่นั้นสำหรับการสื่อสาร
      - หากไม่มีช่วงเวอร์ชันที่รองรับร่วมกัน ให้ปิดการเชื่อมต่อ WebSocket ทันทีด้วย Close Code **4003** และส่ง Error Code **`E_UNSUPPORTED_VERSION`**
@@ -456,6 +526,9 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-11: การจัดการอุปกรณ์และการเพิกถอนสิทธิ์ทั่วทั้งคลัสเตอร์ (Device Management & Signed Cluster Revocation)
+* **Priority:** Must Have (MoSCoW)
+* **Rationale:** เพื่อความมั่นคงปลอดภัยเมื่ออุปกรณ์ในคลัสเตอร์สูญหายหรือถูกขโมย โดยสามารถเพิกถอนสิทธิ์ได้ทันทีและมีผลทั่วทั้งคลัสเตอร์โดยที่เครื่องที่ถูกขโมยไม่สามารถชิงสั่งทำลายระบบได้ (ตอบสนอง UR-11)
+* **Verification Method:** Test (T) & Inspection (I) — ทดสอบส่งคำสั่งเพิกถอน จับเวลาตัดการเชื่อมต่อ (< 2.0 วินาที) และตรวจสอบการปฏิเสธคำสั่ง Self-Revocation by Proxy
 * **Description:** ระบบต้องอนุญาตให้ผู้ใช้ตรวจสอบรายการอุปกรณ์ และเพิกถอนสิทธิ์อุปกรณ์ที่ไม่ต้องการได้ทันที พร้อมกระจายคำสั่งเพิกถอนที่มีลายเซ็นดิจิทัลไปยังทุกอุปกรณ์ในคลัสเตอร์ และซิงก์สถานะกับอุปกรณ์ที่เคยออฟไลน์ผ่าน Anti-Entropy
 * **Input:** คำสั่งเพิกถอนอุปกรณ์ (Revoke Command) จากหน้าต่างการตั้งค่า
 * **Process:**
@@ -467,7 +540,7 @@ DropClip ได้รับการออกแบบภายใต้สถ�
   3. *มาตรการป้องกันการเพิกถอนโดยเครื่องที่ถูกขโมย (No Self-Revocation by Proxy):*
      - โหนดในคลัสเตอร์ที่ได้รับข้อความจะตรวจสอบลายเซ็นดิจิทัล และดำเนินการเพิกถอนเครื่องเป้าหมายออกจาก Trusted Store ของตนเองทันที พร้อมตัดการเชื่อมต่อภายใน **< 2.0 วินาที** ทั่วทั้งเครือข่าย LAN
      - **โหนดปลายทางจะไม่ยอมรับคำสั่งเพิกถอนตนเองที่ส่งมาจากโหนดอื่นเด็ดขาด** (หาก `revoked_id == my_id` จะไม่ประมวลผลคำสั่ง) เพื่อป้องกันไม่ให้เครื่องที่ถูกขโมยชิงส่งคำสั่งทำลายโหนดจริงในระบบ
-     - แสดงการแจ้งเตือนระดับระบบ (Interactive System Notification) ให้ผู้ใช้ทราบบนหน้าจอทันทีเมื่อมีอุปกรณ์ในคลัสเตอร์ถูกเพิกถอน
+     - แสดงการแจ้งเตือนระดับระบบ (Interactive System Notification) ให้ผู้ใช้ทราบบนหน้าจอทันทีเมื่อมีอุปกรณ์ในคลัสเตอร์ถูกเพิกถอน พร้อมกล่องยืนยันหากเป็นคำสั่งที่มีผลกระทบ
   4. *การซิงก์สถานะกับอุปกรณ์ที่ออฟไลน์ (Handshake Anti-Entropy):*
      - ทุกโหนดแนบ `tombstones_hash` ไปในข้อความ `hello` / `hello.ack`
      - หากตรวจพบว่า Hash ไม่ตรงกัน ให้ส่งข้อความ `revocation.sync` เพื่อแลกเปลี่ยน Tombstones ที่ขาดไปทันที ป้องกันเครื่องที่ถูกเพิกถอนกลับมาเชื่อมต่อกับโหนดที่เคยออฟไลน์
@@ -476,12 +549,15 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 ---
 
 ### FR-12: การกำหนดค่าระบบและการเริ่มต้นอัตโนมัติ (System Configuration & Auto-Start Management)
+* **Priority:** Should Have (MoSCoW)
+* **Rationale:** มอบความต่อเนื่องในการทำงาน (Continuity) โดยโปรแกรมเริ่มทำงานพร้อมระบบปฏิบัติการในลักษณะเบื้องหลังโดยไม่รบกวนผู้ใช้ (ตอบสนอง UR-06, UR-07)
+* **Verification Method:** Demonstration (D) & Inspection (I) — ตรวจสอบการลงทะเบียนในระบบปฏิบัติการ และทดสอบการรีบูตเครื่องเพื่อดูสถานะเริ่มต้นใน System Tray
 * **Description:** ระบบต้องบันทึกการตั้งค่าของผู้ใช้ และสามารถลงทะเบียนเพื่อเริ่มต้นทำงานพร้อมระบบปฏิบัติการได้
 * **Input:** ค่าการตั้งค่าจากผู้ใช้ (การรับไฟล์อัตโนมัติ, โฟลเดอร์ปลายทาง, ค่า TTL, การเปิด-ปิดระบบ)
 * **Process:**
   1. บันทึกการกำหนดค่าลงไฟล์ JSON ในเครื่องและนำไปประยุกต์ใช้ทันทีโดยไม่ต้องรีสตาร์ตแอปพลิเคชัน
   2. เมื่อเปิดตัวเลือก Auto-Start:
-     - macOS: ลงทะเบียนผ่าน Service Management Framework (`SMAppService`)
+     - macOS: บน macOS 13+ ลงทะเบียนผ่าน Service Management Framework (`SMAppService`) และบน macOS 12 ใช้การลงทะเบียน `LaunchAgent` `.plist`
      - Windows: ลงทะเบียนคีย์ใน Windows Registry (`Software\Microsoft\Windows\CurrentVersion\Run`)
   3. เมื่อระบบบูตขึ้นมา แอปพลิเคชันต้องเปิดทำงานในสถานะย่อตัวลง System Tray / Menubar ทันที โดยไม่เปิดหน้าต่างโปรแกรมรบกวนผู้ใช้
 * **Output:** ระบบทำงานสอดคล้องกับการตั้งค่า และเริ่มต้นทำงานพร้อมระบบปฏิบัติการอย่างราบรื่น
@@ -506,16 +582,16 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 * **NFR-P02 (ความหน่วงการซิงก์คลิปบอร์ดรูปภาพ):** การซิงก์ภาพขนาด 2 MB ต้องสำเร็จภายในเวลา **p95 < 2,500 ms**
 * **NFR-P03 (ความเร็วในการถ่ายโอนไฟล์):** อัตรา Throughput ในการถ่ายโอนไฟล์ขนาดใหญ่ (ทดสอบที่ 4 GB บน Mobile และ 10 GB บน Desktop) ต้องทำได้ **≥ 60% ของค่า Throughput สูงสุดที่วัดได้จาก iperf3 baseline** ภายใต้สภาพแวดล้อม Test Rig มาตรฐาน: เราเตอร์ Wi-Fi 6 (802.11ax) ย่านความถี่ 5 GHz, Channel Width 80 MHz, ค่าความแรงสัญญาณ RSSI ≥ -60 dBm หรือสายเคเบิล 1 Gbps Ethernet LAN
 * **NFR-P04 (เวลาในการค้นพบอุปกรณ์):** ระบบต้องค้นพบอุปกรณ์อื่นในเครือข่ายเดียวกันภายในเวลา **< 3 วินาที** นับจากเปิดโปรแกรม
-* **NFR-P05 (เวลาในการประมวลผลแปลงภาพ):** การแปลงโครงสร้างภาพความละเอียด 4K ระหว่าง OS ต้องใช้เวลา **< 200 ms**
+* **NFR-P05 (เวลาในการประมวลผลแปลงภาพ):** การแปลงโครงสร้างภาพความละเอียด 4K ระหว่าง OS ต้องใช้เวลา **< 200 ms** โดยกำหนดให้ระบบเรียกใช้ Native Platform Image Codec (macOS/iOS `CoreGraphics` & `ImageIO`, Windows `WIC`, Android `BitmapFactory`) เพื่อใช้ Hardware Acceleration แทนการ Decode บน CPU ของ Dart VM ล้วน
 
 ### 3.3.2 ด้านการใช้ทรัพยากรระบบ (Resource Utilization Requirements)
-* **NFR-R01 (การควบคุมหน่วยความจำขณะส่งไฟล์และการทดสอบ Soak Test):** ขณะสตรีมไฟล์ขนาดใหญ่ (ทดสอบที่ 10 GB บน Desktop และ 4 GB บน Mobile) ตัวโปรแกรมต้องใช้หน่วยความจำ RAM สูงสุด (Resident Set Size - RSS) **ไม่เกิน 100 MB ตลอดระยะเวลาการส่ง** และในการทดสอบความคงทนระยะยาว 72 ชั่วโมง (72-hour Soak Test) อัตราการเพิ่มของหน่วยความจำ RSS ต้อง **≤ 5%** หลังจากผ่านพ้นช่วง Warm-up 30 นาทีแรก
+* **NFR-R01 (การควบคุมหน่วยความจำขณะส่งไฟล์และการทดสอบ Soak Test):** ขณะสตรีมไฟล์ขนาดใหญ่ (10 GB บน Desktop และ 4 GB บน Mobile) อัตราการเพิ่มของหน่วยความจำ (Delta RSS) ต้อง **ไม่เกิน 50 MB เหนือ Baseline ปกติ** ตลอดระยะเวลาการส่ง (โดยรวม Peak RAM บน Desktop < 150 MB, และ Peak RAM บน iOS Extension < 30 MB เพื่อป้องกัน Jetsam Kill) และในการทดสอบความคงทนระยะยาว 72 ชั่วโมง (72-hour Soak Test) อัตราการเพิ่มของหน่วยความจำ RSS ต้อง **≤ 5%** หลังจากผ่านพ้นช่วง Warm-up 30 นาทีแรก
 * **NFR-R02 (การใช้ CPU ในสถานะไม่ได้ใช้งาน):** บน Desktop เมื่อไม่มีการรับส่งข้อมูล อัตราการใช้ CPU เฉลี่ยต้อง **< 0.5%** ตลอดระยะเวลา 8 ชั่วโมง (โดยบน Windows ที่ทำงานแบบ Event-Driven Clipboard Listener ต้องทำได้เฉลี่ย **< 0.2%**)
 * *(หมายเหตุ: ข้อกำหนด NFR-R03A และ NFR-R03B ได้รับการระบุไว้ในตาราง Matrix หัวข้อ 3.3.1)*
 
 ### 3.3.3 ด้านความน่าเชื่อถือและความสมบูรณ์ของข้อมูล (Reliability Requirements)
 * **NFR-RE01 (ความสมบูรณ์ของไฟล์):** ไฟล์ที่ถ่ายโอนสำเร็จทุกไฟล์ต้องมีค่า SHA-256 Checksum ตรงกับต้นฉบับ **100% จากการทดสอบส่งไฟล์จำนวน 500 ครั้ง**
-* **NFR-RE02 (การระงับเหตุการณ์วนซ้ำ):** ในการทดสอบกระจายข้อมูลคลิปบอร์ด 1,000 เหตุการณ์พร้อมกันบน 4 อุปกรณ์ ข้อมูลต้องลู่เข้าสู่ค่าเดียวกัน (Convergence) โดย **ไม่มีการเกิด Infinite Loop และไม่มีข้อมูลสูญหาย 100%**
+* **NFR-RE02 (การระงับเหตุการณ์วนซ้ำและการลู่เข้าของข้อมูล):** ในการทดสอบกระจายข้อมูลคลิปบอร์ด 1,000 เหตุการณ์พร้อมกันบน 4 อุปกรณ์ ระบบรับประกัน Eventual Consistency และข้อมูลลู่เข้าสู่สถานะเดียวกัน (Convergence) ตามลำดับ HLC Last-Writer-Wins (LWW) โดย **ไม่มีการเกิด Infinite Feedback Loop และไม่มีการสูญหายของข้อมูลที่ถูกต้องตามลำดับเวลา**
 * **NFR-RE03 (การกู้คืนการเชื่อมต่อ):** เมื่อจำลองการตัดและต่อสายสัญญาณเครือข่ายจำนวน 20 ครั้ง ระบบต้องสามารถเชื่อมต่อใหม่สำเร็จ 100% โดย **ไม่เกิดปัญหา Socket ค้างสะสม (Zero Socket Leak)**
 
 ### 3.3.4 ด้านความปลอดภัยและความเป็นส่วนตัว (Security Requirements)
@@ -527,7 +603,7 @@ DropClip ได้รับการออกแบบภายใต้สถ�
   2. macOS: `com.agilebits.onepassword` / `org.nspasteboard.TransientType`
   3. Windows: `ExcludeClipboardContentFromMonitorProcessing`
   4. Windows: `CanIncludeInClipboardHistory` (เมื่อมีค่าเป็น 0 / FALSE)
-  5. Android: `ClipDescription.EXTRA_IS_SENSITIVE` / `Clipboard.EXTRA_IS_SENSITIVE` / `application/x-vnd.android.secret`
+  5. Android: `ClipDescription.EXTRA_IS_SENSITIVE` / `Clipboard.EXTRA_IS_SENSITIVE`
   จากการทดสอบคัดลอก 100 ครั้ง จาก Password Managers (1Password, Bitwarden, KeePass, Apple Keychain)
 * **NFR-S05 (เวลาในการบังคับใช้การเพิกถอน):** เมื่อกดเพิกถอนอุปกรณ์ ระบบต้องทำการตัดการเชื่อมต่อและเพิกถอนสิทธิ์บนเครื่องที่สั่ง **ภายในเวลา < 1.0 วินาที** และโหนดที่ออนไลน์ทั้งหมดในคลัสเตอร์ LAN ต้องดำเนินการเพิกถอนเสร็จสิ้น **ภายในเวลา < 2.0 วินาที**
 
@@ -535,6 +611,11 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 * **NFR-U01 (การลดขั้นตอนการทำงาน):** ระบบต้องช่วยลดขั้นตอนการโต้ตอบของผู้ใช้ (Interaction Count) ลง **≥ 70%** เมื่อเทียบกับวิธีการส่งข้อมูลเดิมใน 5 สถานการณ์ทดสอบ
 * **NFR-U02 (คะแนนความพึงพอใจการใช้งาน):** ซอฟต์แวร์ต้องได้รับคะแนนประเมินความง่ายในการใช้งานมาตรฐาน **System Usability Scale (SUS) ≥ 75 คะแนน** จากกลุ่มผู้ทดสอบจริง
 * **NFR-U03 (การทำงานอย่างเงียบสงบ):** เมื่อเปิดเครื่องใหม่ โปรแกรมต้องซ่อนตัวลง System Tray / Menubar โดย **ไม่อนุญาตให้แสดง Pop-up หรือหน้าต่างหลักรบกวนสายตาผู้ใช้**
+
+### 3.3.6 ด้านคุณภาพเชิงวิศวกรรม ความสามารถในการบำรุงรักษา และการเข้าถึง (Engineering Quality, Maintainability, Localization & Accessibility)
+* **NFR-M01 (คุณภาพซอฟต์แวร์และการทดสอบ):** โค้ดใน Monorepo ต้องมี Unit/Integration Test ครอบคลุม **≥ 75% Code Coverage**, ผ่านการตรวจสอบ `melos run analyze` โดยมีข้อผิดพลาดหรือ Warning เป็น 0, และปฏิบัติตามกฎ PR ขนาดเล็ก $\le 400$ บรรทัด
+* **NFR-L01 (การรองรับภาษา):** ส่วนติดต่อผู้ใช้ (UI) ต้องรองรับทั้งภาษาไทยและภาษาอังกฤษ โดยสามารถสลับภาษาได้จากการตั้งค่าของแอปพลิเคชัน
+* **NFR-A01 (การเข้าถึงสำหรับทุกคน):** ส่วนติดต่อผู้ใช้บน Desktop ต้องรองรับการนำทางด้วยแป้นพิมพ์อย่างสมบูรณ์ (Full Keyboard Navigation ผ่าน Tab / Enter / Esc) และมีค่า Contrast Ratio ของข้อความ $\ge 4.5:1$ ตามมาตรฐาน WCAG 2.1 Level AA
 
 ---
 
@@ -600,13 +681,21 @@ DropClip ได้รับการออกแบบภายใต้สถ�
 
 ---
 
-## ตารางสอบทานความสอดคล้องของข้อกำหนด (Traceability Matrix)
+## ตารางสอบทานความสอดคล้องของข้อกำหนด (Comprehensive Requirements Traceability Matrix — RTM)
 
-| ปัญหาการดำเนินการเดิม (As-Is Problem) | ความต้องการของผู้ใช้ (User Requirement: UR) | ฟีเจอร์หลักของระบบ (System Feature: SF) | ข้อกำหนดเชิงหน้าที่ (Functional Requirement: FR) | ข้อกำหนดที่ไม่ใช่หน้าที่ (Non-Functional: NFR) |
-|---|---|---|---|---|
-| **P-01** ขั้นตอนซ้ำซ้อนสูง | UR-01, UR-05 | SF-03, SF-07 | FR-03A, FR-03B, FR-03C, FR-04, FR-08 | NFR-U01, NFR-P01A, NFR-P01B, NFR-P01C, NFR-P01D |
-| **P-02** คอขวดความเร็วอินเทอร์เน็ต | UR-02, UR-10 | SF-06 | FR-07, FR-08, FR-09 | NFR-P03, NFR-R01 |
-| **P-03** คุณภาพไฟล์ถูกลดทอน | UR-03 | SF-04, SF-06 | FR-06, FR-07, FR-08 | NFR-RE01, NFR-P05 |
-| **P-04** ความเสี่ยงข้อมูลรั่วไหล | UR-04, UR-08 | SF-02, SF-05 | FR-02, FR-05 | NFR-S01, NFR-S02, NFR-S04 |
-| **P-05** เครื่องมือเดิมมี Friction สูง | UR-05, UR-06, UR-07, UR-09 | SF-01, SF-07 | FR-01, FR-08, FR-12 | NFR-P04, NFR-U03 |
-| **P-06** ปัญหาภาพข้าม OS | UR-03 | SF-04 | FR-06 | NFR-P05 |
+| รหัสปัญหา (As-Is) | ความต้องการผู้ใช้ (UR) | ฟีเจอร์ระบบ (SF) | ข้อกำหนดหน้าที่ (FR) | ข้อกำหนดไม่เกี่ยวกับหน้าที่ (NFR) | วิธีการตรวจสอบ (Verification) |
+|---|---|---|---|---|:---:|
+| **P-01** ขั้นตอนซ้ำซ้อนสูง | **UR-01** ความสะดวกคลิปบอร์ด<br>**UR-06** ทำงานเงียบสงบ | **SF-03** Real-Time Clipboard Sync | **FR-03A** Tier 1 Full Passive<br>**FR-03B** Tier 2 Assisted Sync<br>**FR-03C** Tier 3 Manual-Assist<br>**FR-04** Loop Prevention & HLC | **NFR-P01A** Latency p95 < 1,000ms<br>**NFR-P01B** Android In < 1,200ms<br>**NFR-P01C** Android Out < 800ms<br>**NFR-P01D** iOS Out < 1,500ms<br>**NFR-U01** ลดขั้นตอน $\ge 70\%$<br>**NFR-U03** ซ่อนตัวลง Tray/Menubar | **T, D** |
+| **P-02** คอขวดความเร็วอินเทอร์เน็ต | **UR-02** ความเร็วส่งไฟล์<br>**UR-10** ส่งไฟล์ต่อเนื่องเมื่อหลุด | **SF-06** Streaming Transfer Engine | **FR-07** Streaming File Sender<br>**FR-08** File Receiver & Quarantine<br>**FR-09** Resumable Transfer (64 MiB) | **NFR-P03** Throughput $\ge 60\%$ iperf3<br>**NFR-R01** Delta RAM $\le 50$ MB<br>**NFR-RE01** Checksum ตรง 100% | **T, D** |
+| **P-03** คุณภาพไฟล์ลดทอน | **UR-03** คุณภาพระดับต้นฉบับ 100% | **SF-04** Image Normalizer<br>**SF-06** Streaming Transfer Engine | **FR-06** Image Normalization<br>**FR-07** Streaming File Sender<br>**FR-08** File Receiver & Checksum | **NFR-P05** แปลงภาพ 4K < 200 ms<br>**NFR-RE01** SHA-256 ตรง 100% | **T, D** |
+| **P-04** ความเสี่ยงข้อมูลรั่วไหล | **UR-04** ควบคุมความเป็นส่วนตัว<br>**UR-08** ปลอดภัยจากรหัสผ่านรั่ว | **SF-02** Cryptographic Pairing<br>**SF-05** Sensitive Content Filter | **FR-02** Pairing (Commit-Reveal SAS)<br>**FR-05** Sensitive Filter & TTL | **NFR-S01** TLS 1.3 ล้วน<br>**NFR-S02** Hardware Keystore<br>**NFR-S04** กรอง Marker ลับ 5 แบบ 100% | **T, I** |
+| **P-05** ซอฟต์แวร์เดิม Friction สูง | **UR-05** รับไฟล์ลดแรงเสียดทาน<br>**UR-06** ทำงานไม่รบกวน<br>**UR-07** ตั้งค่าง่าย ไม่ต้องมีบัญชี<br>**UR-09** ค้นหาอุปกรณ์อัตโนมัติ | **SF-01** Zero-Config Discovery<br>**SF-07** Trusted File Acceptance | **FR-01** Zero-Config Discovery<br>**FR-08** File Receiver & Quarantine<br>**FR-10** Connection & Reconnect<br>**FR-12** Auto-Start Management | **NFR-P04** Discovery < 3 วินาที<br>**NFR-R02** CPU Idle < 0.5%<br>**NFR-RE03** Zero Socket Leak<br>**NFR-U02** SUS Score $\ge 75$ | **T, D, I** |
+| **P-06** ปัญหาภาพข้าม OS | **UR-03** ภาพคงคุณภาพและมิติสี | **SF-04** Cross-OS Image Normalizer | **FR-06** Image Normalization | **NFR-P02** Latency ภาพ < 2.5s<br>**NFR-P05** แปลงภาพ 4K < 200 ms | **T, D** |
+| *(การจัดการคลัสเตอร์และความมั่นคง)* | **UR-11** การจัดการและเพิกถอนสิทธิ์ | **SF-08** Trusted Device Revocation | **FR-11** Signed Cluster Revocation | **NFR-S03** บล็อก Path Traversal 12 แบบ<br>**NFR-S05** เพิกถอนในเครื่อง < 1s, คลัสเตอร์ < 2s | **T, I** |
+| *(คุณภาพวิศวกรรมและการเข้าถึง)* | **UR-01–UR-11** ทุกด้าน | **SF-01–SF-08** ทุกฟีเจอร์ | **FR-01–FR-12** ทุกข้อกำหนด | **NFR-M01** Test Coverage $\ge 75\%$<br>**NFR-L01** รองรับภาษาไทย/อังกฤษ<br>**NFR-A01** Keyboard Nav & WCAG AA | **T, I, D** |
+
+*คำอธิบายสัญลักษณ์วิธีการตรวจสอบ (Verification Methods):*
+- **T (Test):** ทดสอบด้วยระบบทดสอบอัตโนมัติ (Automated Unit, Integration หรือ Regression Test)
+- **I (Inspection):** ตรวจสอบเชิงประจักษ์จากซอร์สโค้ด, การตั้งค่า, เอกสาร, หรือการตรวจจับ Network Packet
+- **A (Analysis):** การวิเคราะห์เชิงตรรกะ แบบจำลองทางคณิตศาสตร์ หรือการคำนวณเปรียบเทียบ
+- **D (Demonstration):** การสาธิตการทำงานจริงของระบบต่อหน้าผู้ประเมินตามสถานการณ์ทดสอบมาตรฐาน
