@@ -15,3 +15,4 @@
    - Commit Hash, วันที่ และสรุปผลการทดสอบ (Test Evidence)
 4. อย่าลืมบันทึก Work Log ของคุณใน [`docs/worklogs/`](file:///c:/Users/UsEr/Documents/GitHub/DropClip/docs/worklogs/)
 5. Commit การอัปเดตนี้ก่อนทำการเปิด Pull Request หรือ Squash & Merge เข้า `main`
+

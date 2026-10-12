@@ -23,3 +23,4 @@ Detailed instructions are located in AGENTS.md. Follow these critical rules:
 ## 3. Mandatory Workflow Steps
 1. Document all work in a work log in `docs/worklogs/` (see `docs/worklogs/TEMPLATE.md`).
 2. When finishing a task in your branch, ALWAYS update `docs/TASK-PROGRESS-AND-UPDATES.md` (or `UPDATES.md`) with your ticket completion status, commit hash, and verification notes.
+

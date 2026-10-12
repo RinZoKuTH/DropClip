@@ -74,3 +74,4 @@
 - วางรากฐาน Monorepo ด้วย Melos จัดการ 5 Core Packages, 2 Apps, และ 2 Tools
 - สร้าง GitHub Actions CI สำหรับ Melos Bootstrap, Formatting, Analyzing และ Unit Testing
 - วางรากฐาน Testing Matrix สำหรับ Linux, macOS, และ Windows runners
+

@@ -171,3 +171,4 @@ No branch or PR may be approved or merged until ALL boxes are checked:
 - [ ] NO plaintext secrets, private keys, or clipboard contents logged.
 - [ ] Work log documented in `docs/worklogs/`.
 - [ ] Central progress registry updated in [`docs/TASK-PROGRESS-AND-UPDATES.md`](file:///c:/Users/UsEr/Documents/GitHub/DropClip/docs/TASK-PROGRESS-AND-UPDATES.md).
+

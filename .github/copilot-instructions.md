@@ -9,3 +9,4 @@ Key Directives:
 4. **Zero PIN on Wire:** Never send pairing PIN or hash of PIN over the wire. It is strictly an OOB salt for SAS.
 5. **Quality Checks:** Always write unit tests for every change. Run `melos run analyze` and `melos run test`.
 6. **Logging & Tracking:** Keep a branch log in `docs/worklogs/` and update `docs/TASK-PROGRESS-AND-UPDATES.md` when completing your task.
+

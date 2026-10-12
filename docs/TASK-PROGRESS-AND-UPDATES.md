@@ -128,3 +128,4 @@
 - [ ] ขอบเขตของ PR ไม่เกิน 400 บรรทัด (ตามกฎ Non-Negotiable Rule #1)
 - [ ] มีการบันทึก Work Log ลงใน `docs/worklogs/` เรียบร้อยแล้ว
 - [ ] ได้เข้ามาติ๊กสถานะและกรอกข้อมูลในตาราง Registry ของไฟล์นี้ (`docs/TASK-PROGRESS-AND-UPDATES.md`) แล้ว
+
