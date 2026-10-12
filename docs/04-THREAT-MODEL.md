@@ -234,3 +234,4 @@ graph TD
 ความปลอดภัยของระบบ DropClip จะได้รับการตรวจสอบอย่างเป็นทางการใน 2 ขั้นตอนสำคัญตาม Playbook:
 1. **Phase 1 Exit Review (`GATE-1`):** Desktop Security Audit ตรวจสอบ Certificate Pinning, Revocation Broadcast < 2s, 100% Recognized Sensitive Marker Filtering, และ Path Traversal 12/12 Attack Vectors
 2. **Phase 4 Hardening (`T4.2`):** Comprehensive Security Audit & Mobile Penetration Testing ตรวจสอบ Fuzzing 100,000 requests, Log Scrubber Verification, และ Third-party Penetration Testing 2 วัน
+

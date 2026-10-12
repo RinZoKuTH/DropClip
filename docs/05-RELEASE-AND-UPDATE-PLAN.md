@@ -154,3 +154,4 @@ flowchart TD
 1. **Dependency Locking:** ตรวจสอบและบันทึก Checksum ของทุก Package ใน `pubspec.lock`, `Podfile.lock`, และ Gradle Wrapper
 2. **Automated Vulnerability Audit:** รันคำสั่ง `dart pub audit` และ GitHub Dependabot ทุกสัปดาห์
 3. **CycloneDX SBOM Generation:** ทุก Release Build ใน GitHub Actions จะส่งออกไฟล์ `sbom-dropclip.json` ตามมาตรฐาน CycloneDX 1.5 เพื่อให้ผู้ใช้งานและองค์กรสามารถตรวจสอบส่วนประกอบซอฟต์แวร์แบบโอเพนซอร์สได้อย่างโปร่งใส
+
